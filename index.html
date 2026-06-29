@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f6f8c" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="КП Туман" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>КП Туманообразование</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon.svg" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="panel controls" aria-labelledby="app-title">
+        <div class="brand-row">
+          <img class="brand-mark" src="logo.png" alt="" />
+          <div>
+            <p class="eyebrow">ИП «Бауыржан»</p>
+            <h1 id="app-title">КП Туманообразование</h1>
+          </div>
+        </div>
+
+        <form id="quote-form" class="quote-form">
+          <div class="field-grid">
+            <label class="quote-number-field">
+              <span>Номер КП</span>
+              <div class="number-control">
+                <button id="prev-quote-button" class="step-button" type="button" aria-label="Предыдущий номер КП">−</button>
+                <button id="next-quote-button" class="step-button" type="button" aria-label="Следующий номер КП">+</button>
+                <input id="quote-number" name="quoteNumber" inputmode="numeric" autocomplete="off" />
+              </div>
+            </label>
+
+            <label>
+              <span>Объект</span>
+              <input id="object-name" name="objectName" autocomplete="organization" />
+            </label>
+
+            <label>
+              <span>Город</span>
+              <input id="city-name" name="cityName" autocomplete="address-level2" />
+            </label>
+
+            <label>
+              <span>Форсунки</span>
+              <input id="nozzle-count" name="nozzleCount" type="number" inputmode="numeric" min="1" step="1" />
+            </label>
+
+            <label>
+              <span>Длина трубки, м</span>
+              <input id="pipe-length" name="pipeLength" type="number" inputmode="decimal" min="0.1" step="0.1" />
+            </label>
+          </div>
+        </form>
+
+        <div class="summary-strip" aria-live="polite">
+          <div>
+            <span>Фитинги</span>
+            <strong id="summary-fittings">40</strong>
+          </div>
+          <div>
+            <span>Насос</span>
+            <strong id="summary-pump">4 л</strong>
+          </div>
+          <div>
+            <span>Трубка</span>
+            <strong id="summary-pipe">40 м</strong>
+          </div>
+          <div>
+            <span>Итого</span>
+            <strong id="summary-total">0 ₸</strong>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button id="print-button" class="primary-button" type="button">
+            <span aria-hidden="true">PDF</span>
+            <span>Печать</span>
+          </button>
+          <button id="download-pdf-button" class="pdf-file-button" type="button">
+            <span aria-hidden="true">PDF</span>
+            <span>Файл</span>
+          </button>
+          <button id="share-pdf-button" class="whatsapp-button" type="button">
+            <span aria-hidden="true">WA</span>
+            <span>WhatsApp</span>
+          </button>
+          <button id="copy-button" class="secondary-button" type="button">
+            <span aria-hidden="true">TXT</span>
+            <span>Копировать</span>
+          </button>
+        </div>
+
+        <details class="settings">
+          <summary>Цены и формулы</summary>
+          <div class="settings-grid">
+            <label>
+              <span>Насос 1 л, ₸</span>
+              <input id="price-pump-1" type="number" inputmode="numeric" min="0" step="1000" />
+            </label>
+            <label>
+              <span>Насос 2 л, ₸</span>
+              <input id="price-pump-2" type="number" inputmode="numeric" min="0" step="1000" />
+            </label>
+            <label>
+              <span>Насос 3 л, ₸</span>
+              <input id="price-pump-3" type="number" inputmode="numeric" min="0" step="1000" />
+            </label>
+            <label>
+              <span>Насос 4 л, ₸</span>
+              <input id="price-pump-4" type="number" inputmode="numeric" min="0" step="1000" />
+            </label>
+            <label>
+              <span>Насос 5 л, ₸</span>
+              <input id="price-pump-5" type="number" inputmode="numeric" min="0" step="1000" />
+            </label>
+            <label>
+              <span>Трубка, ₸/м</span>
+              <input id="price-pipe" type="number" inputmode="numeric" min="0" step="100" />
+            </label>
+            <label>
+              <span>Фитинг, ₸</span>
+              <input id="price-fitting" type="number" inputmode="numeric" min="0" step="100" />
+            </label>
+            <label>
+              <span>Форсунка, ₸</span>
+              <input id="price-nozzle" type="number" inputmode="numeric" min="0" step="100" />
+            </label>
+            <label>
+              <span>Монтаж, ₸</span>
+              <input id="price-installation" type="number" inputmode="numeric" min="0" step="1000" />
+            </label>
+          </div>
+          <button id="reset-settings" class="ghost-button" type="button">Сбросить цены</button>
+        </details>
+
+        <p id="status-line" class="status-line" role="status"></p>
+      </section>
+
+      <section class="quote-stage" aria-label="Предпросмотр КП">
+        <article id="quote-preview" class="quote-document"></article>
+      </section>
+    </main>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>

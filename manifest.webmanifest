@@ -1,0 +1,17 @@
+{
+  "name": "КП Туманообразование",
+  "short_name": "КП Туман",
+  "description": "Расчет и подготовка коммерческих предложений для систем туманообразования.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#edf4f5",
+  "theme_color": "#0f6f8c",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
