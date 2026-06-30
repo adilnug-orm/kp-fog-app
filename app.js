@@ -389,18 +389,203 @@ function updateStateFromField(event) {
   renderQuote();
 }
 
-function quoteAsText() {
+function quoteAsFormattedText() {
   const quote = calculateQuote();
+  const quoteNumber = state.quoteNumber || DEFAULT_STATE.quoteNumber;
+  const objectName = state.objectName || DEFAULT_STATE.objectName;
+  const cityName = state.cityName || DEFAULT_STATE.cityName;
   const lines = [
-    `Коммерческое предложение № ${state.quoteNumber || DEFAULT_STATE.quoteNumber} от ${dateRu()}`,
-    `Объект: ${state.objectName || DEFAULT_STATE.objectName}`,
-    `Город: ${state.cityName || DEFAULT_STATE.cityName}`,
+    "ИП «Бауыржан»",
+    "Системы туманообразования высокого давления",
+    "+7 (701) 988-80-25",
+    "adilnug@gmail.com",
+    "г. Астана, ул. Аягоз, 1",
     "",
-    ...quote.rows.map((row, index) => `${index + 1}. ${row.name} — ${quantity(row.qty)} ${row.unit} × ${money(row.price)} = ${money(row.sum)}`),
+    "КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ",
+    "Поставка и монтаж системы туманообразования «под ключ»",
+    "",
+    `Исходящий:\t№ ${quoteNumber} от ${dateRu()}`,
+    `Объект:\t${objectName}`,
+    `Город:\t${cityName}`,
+    "",
+    "ИП «Бауыржан» предлагает выполнить поставку и профессиональный монтаж системы туманообразования высокого давления. Все цены указаны в тенге (₸) с учётом материалов.",
+    "",
+    ["№", "Наименование", "Описание", "Кол-во", "Ед.", "Цена", "Сумма"].join("\t"),
+    ...quote.rows.map((row, index) => [
+      index + 1,
+      row.name,
+      row.description,
+      quantity(row.qty),
+      row.unit,
+      money(row.price),
+      money(row.sum),
+    ].join("\t")),
     "",
     `ИТОГО: ${money(quote.total)}`,
+    "",
+    "СОСТАВ РАБОТ",
+    "• Монтаж насосного оборудования высокого давления",
+    "• Установка системы водоподготовки и фильтрации",
+    "• Прокладка труб высокого давления",
+    "• Монтаж фитингов и форсунок",
+    "• Подключение к водопроводу и пусконаладка системы",
+    "",
+    "Будем рады сотрудничеству и готовы подобрать оптимальное решение под Ваш объект.",
+    "",
+    "Индивидуальный предприниматель Бауыржан С. А.",
+    "Подпись: ______________________",
+    "Печать: ИП «Бауыржан» / TUMAN PRO",
   ];
   return lines.join("\n");
+}
+
+function assetUrl(fileName) {
+  return new URL(fileName, window.location.href).href;
+}
+
+function quoteAsHtml() {
+  const quote = calculateQuote();
+  const quoteNumber = state.quoteNumber || DEFAULT_STATE.quoteNumber;
+  const objectName = state.objectName || DEFAULT_STATE.objectName;
+  const cityName = state.cityName || DEFAULT_STATE.cityName;
+  const rowsHtml = quote.rows
+    .map((row, index) => `
+      <tr>
+        <td style="padding:8px;border:1px solid #d5e2e5;text-align:center;">${index + 1}</td>
+        <td style="padding:8px;border:1px solid #d5e2e5;"><strong>${escapeHtml(row.name)}</strong><br><span style="color:#64747b;">${escapeHtml(row.description)}</span></td>
+        <td style="padding:8px;border:1px solid #d5e2e5;text-align:right;">${quantity(row.qty)}</td>
+        <td style="padding:8px;border:1px solid #d5e2e5;text-align:center;">${escapeHtml(row.unit)}</td>
+        <td style="padding:8px;border:1px solid #d5e2e5;text-align:right;">${money(row.price)}</td>
+        <td style="padding:8px;border:1px solid #d5e2e5;text-align:right;font-weight:700;">${money(row.sum)}</td>
+      </tr>
+    `)
+    .join("");
+
+  return `
+    <article style="max-width:760px;color:#182227;background:#ffffff;font-family:Arial,Helvetica,sans-serif;line-height:1.35;">
+      <header style="display:flex;justify-content:space-between;gap:18px;align-items:center;background:#0b3c49;color:#ffffff;padding:16px;border-radius:8px;">
+        <div style="display:flex;gap:12px;align-items:center;">
+          <img src="${assetUrl("logo.png")}" alt="" style="width:52px;height:52px;border-radius:50%;object-fit:cover;">
+          <div>
+            <div style="font-size:18px;font-weight:700;">ИП «Бауыржан»</div>
+            <div style="color:#bfe0e7;font-size:12px;">Системы туманообразования высокого давления</div>
+          </div>
+        </div>
+        <div style="color:#bfe0e7;font-size:12px;text-align:right;">
+          <strong style="color:#ffffff;">+7 (701) 988-80-25</strong><br>
+          adilnug@gmail.com<br>
+          г. Астана, ул. Аягоз, 1
+        </div>
+      </header>
+
+      <h1 style="margin:30px 0 6px;font-size:30px;line-height:1.05;">КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ</h1>
+      <p style="margin:0 0 18px;color:#64747b;">Поставка и монтаж системы туманообразования «под ключ»</p>
+
+      <table style="width:100%;border-collapse:collapse;margin:0 0 18px;">
+        <tr>
+          <td style="padding:10px;border:1px solid #d5e2e5;"><span style="color:#64747b;font-size:12px;text-transform:uppercase;">Исходящий</span><br><strong>№ ${escapeHtml(quoteNumber)} от ${dateRu()}</strong></td>
+          <td style="padding:10px;border:1px solid #d5e2e5;"><span style="color:#64747b;font-size:12px;text-transform:uppercase;">Объект</span><br><strong>${escapeHtml(objectName)}</strong></td>
+          <td style="padding:10px;border:1px solid #d5e2e5;"><span style="color:#64747b;font-size:12px;text-transform:uppercase;">Город</span><br><strong>${escapeHtml(cityName)}</strong></td>
+        </tr>
+      </table>
+
+      <p>ИП «Бауыржан» предлагает выполнить поставку и профессиональный монтаж системы туманообразования высокого давления. Все цены указаны в тенге (₸) с учётом материалов.</p>
+
+      <table style="width:100%;border-collapse:collapse;margin:18px 0;">
+        <thead>
+          <tr style="background:#0b3c49;color:#ffffff;">
+            <th style="padding:8px;border:1px solid #0b3c49;">№</th>
+            <th style="padding:8px;border:1px solid #0b3c49;text-align:left;">Наименование</th>
+            <th style="padding:8px;border:1px solid #0b3c49;">Кол-во</th>
+            <th style="padding:8px;border:1px solid #0b3c49;">Ед.</th>
+            <th style="padding:8px;border:1px solid #0b3c49;">Цена</th>
+            <th style="padding:8px;border:1px solid #0b3c49;">Сумма</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+        <tfoot>
+          <tr>
+            <td colspan="5" style="padding:10px;border:1px solid #d5e2e5;text-align:right;font-weight:800;">ИТОГО</td>
+            <td style="padding:10px;border:1px solid #d5e2e5;text-align:right;font-weight:800;">${money(quote.total)}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <h2 style="font-size:16px;margin:20px 0 8px;">СОСТАВ РАБОТ</h2>
+      <ul>
+        <li>Монтаж насосного оборудования высокого давления</li>
+        <li>Установка системы водоподготовки и фильтрации</li>
+        <li>Прокладка труб высокого давления</li>
+        <li>Монтаж фитингов и форсунок</li>
+        <li>Подключение к водопроводу и пусконаладка системы</li>
+      </ul>
+
+      <p>Будем рады сотрудничеству и готовы подобрать оптимальное решение под Ваш объект.</p>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:26px;">
+        <div>
+          <div>Индивидуальный предприниматель Бауыржан С. А.</div>
+          <div>______________________</div>
+        </div>
+        <img src="${assetUrl("stamp.png")}" alt="Печать ИП «Бауыржан»" style="width:150px;height:150px;object-fit:contain;transform:rotate(-7deg);">
+      </div>
+    </article>
+  `;
+}
+
+function copyTextFallback(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  textarea.style.top = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch {
+    copied = false;
+  }
+  textarea.remove();
+  return copied;
+}
+
+async function copyQuoteText() {
+  const plainText = quoteAsFormattedText();
+  const htmlText = quoteAsHtml();
+
+  if (navigator.clipboard?.write && typeof ClipboardItem === "function") {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/html": new Blob([htmlText], { type: "text/html" }),
+          "text/plain": new Blob([plainText], { type: "text/plain" }),
+        }),
+      ]);
+      setStatus("КП скопировано в HTML и TXT.");
+      return;
+    } catch {
+      // Fall back to plain text below.
+    }
+  }
+
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(plainText);
+      setStatus("TXT КП скопирован.");
+      return;
+    } catch {
+      // Fall back to the legacy selection API below.
+    }
+  }
+
+  if (copyTextFallback(plainText)) {
+    setStatus("TXT КП скопирован.");
+  } else {
+    setStatus("Копирование недоступно в этом браузере.");
+  }
 }
 
 function safeFilePart(value) {
@@ -958,14 +1143,7 @@ nextQuoteButton.addEventListener("click", () => shiftQuoteNumber(1));
 
 document.querySelector("#share-pdf-button").addEventListener("click", shareQuotePdf);
 
-document.querySelector("#copy-button").addEventListener("click", async () => {
-  try {
-    await navigator.clipboard.writeText(quoteAsText());
-    setStatus("Текст КП скопирован.");
-  } catch {
-    setStatus("Копирование недоступно в этом браузере.");
-  }
-});
+document.querySelector("#copy-button").addEventListener("click", copyQuoteText);
 
 document.querySelector("#reset-settings").addEventListener("click", () => {
   state.settings = clone(DEFAULT_STATE.settings);
