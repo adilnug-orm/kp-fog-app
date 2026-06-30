@@ -49,6 +49,7 @@ const prevQuoteButton = document.querySelector("#prev-quote-button");
 const nextQuoteButton = document.querySelector("#next-quote-button");
 let isPreparingWhatsappPdf = false;
 let isPreparingDownloadPdf = false;
+let isPreparingWordFile = false;
 
 let state = loadState();
 
@@ -389,203 +390,444 @@ function updateStateFromField(event) {
   renderQuote();
 }
 
-function quoteAsFormattedText() {
-  const quote = calculateQuote();
-  const quoteNumber = state.quoteNumber || DEFAULT_STATE.quoteNumber;
-  const objectName = state.objectName || DEFAULT_STATE.objectName;
-  const cityName = state.cityName || DEFAULT_STATE.cityName;
-  const lines = [
-    "ИП «Бауыржан»",
-    "Системы туманообразования высокого давления",
-    "+7 (701) 988-80-25",
-    "adilnug@gmail.com",
-    "г. Астана, ул. Аягоз, 1",
-    "",
-    "КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ",
-    "Поставка и монтаж системы туманообразования «под ключ»",
-    "",
-    `Исходящий:\t№ ${quoteNumber} от ${dateRu()}`,
-    `Объект:\t${objectName}`,
-    `Город:\t${cityName}`,
-    "",
-    "ИП «Бауыржан» предлагает выполнить поставку и профессиональный монтаж системы туманообразования высокого давления. Все цены указаны в тенге (₸) с учётом материалов.",
-    "",
-    ["№", "Наименование", "Описание", "Кол-во", "Ед.", "Цена", "Сумма"].join("\t"),
-    ...quote.rows.map((row, index) => [
-      index + 1,
-      row.name,
-      row.description,
-      quantity(row.qty),
-      row.unit,
-      money(row.price),
-      money(row.sum),
-    ].join("\t")),
-    "",
-    `ИТОГО: ${money(quote.total)}`,
-    "",
-    "СОСТАВ РАБОТ",
-    "• Монтаж насосного оборудования высокого давления",
-    "• Установка системы водоподготовки и фильтрации",
-    "• Прокладка труб высокого давления",
-    "• Монтаж фитингов и форсунок",
-    "• Подключение к водопроводу и пусконаладка системы",
-    "",
-    "Будем рады сотрудничеству и готовы подобрать оптимальное решение под Ваш объект.",
-    "",
-    "Индивидуальный предприниматель Бауыржан С. А.",
-    "Подпись: ______________________",
-    "Печать: ИП «Бауыржан» / TUMAN PRO",
+const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const PUBLIC_ASSET_BASE_URL = "https://adilnug-orm.github.io/kp-fog-app/";
+
+function xmlEscape(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+}
+
+function wRun(text, options = {}) {
+  const props = [
+    '<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>',
   ];
-  return lines.join("\n");
+  if (options.bold) props.push("<w:b/>");
+  if (options.color) props.push(`<w:color w:val="${options.color}"/>`);
+  if (options.size) props.push(`<w:sz w:val="${options.size}"/>`);
+  return `<w:r><w:rPr>${props.join("")}</w:rPr><w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r>`;
 }
 
-function assetUrl(fileName) {
-  return new URL(fileName, window.location.href).href;
+function wParagraph(content = "", options = {}) {
+  const props = [];
+  if (options.alignment) props.push(`<w:jc w:val="${options.alignment}"/>`);
+  if (options.spacing) {
+    const before = options.spacing.before || 0;
+    const after = options.spacing.after || 0;
+    props.push(`<w:spacing w:before="${before}" w:after="${after}"/>`);
+  }
+  const children = Array.isArray(content) ? content.join("") : content;
+  return `<w:p>${props.length ? `<w:pPr>${props.join("")}</w:pPr>` : ""}${children}</w:p>`;
 }
 
-function quoteAsHtml() {
-  const quote = calculateQuote();
-  const quoteNumber = state.quoteNumber || DEFAULT_STATE.quoteNumber;
-  const objectName = state.objectName || DEFAULT_STATE.objectName;
-  const cityName = state.cityName || DEFAULT_STATE.cityName;
-  const rowsHtml = quote.rows
-    .map((row, index) => `
-      <tr>
-        <td style="padding:8px;border:1px solid #d5e2e5;text-align:center;">${index + 1}</td>
-        <td style="padding:8px;border:1px solid #d5e2e5;"><strong>${escapeHtml(row.name)}</strong><br><span style="color:#64747b;">${escapeHtml(row.description)}</span></td>
-        <td style="padding:8px;border:1px solid #d5e2e5;text-align:right;">${quantity(row.qty)}</td>
-        <td style="padding:8px;border:1px solid #d5e2e5;text-align:center;">${escapeHtml(row.unit)}</td>
-        <td style="padding:8px;border:1px solid #d5e2e5;text-align:right;">${money(row.price)}</td>
-        <td style="padding:8px;border:1px solid #d5e2e5;text-align:right;font-weight:700;">${money(row.sum)}</td>
-      </tr>
-    `)
-    .join("");
+function wTableCell(content, width, options = {}) {
+  const props = [
+    `<w:tcW w:w="${width}" w:type="dxa"/>`,
+    '<w:tcMar><w:top w:w="80" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tcMar>',
+  ];
+  if (options.gridSpan) props.push(`<w:gridSpan w:val="${options.gridSpan}"/>`);
+  if (options.fill) props.push(`<w:shd w:val="clear" w:color="auto" w:fill="${options.fill}"/>`);
+  if (options.valign) props.push(`<w:vAlign w:val="${options.valign}"/>`);
+  const children = Array.isArray(content) ? content.join("") : content;
+  return `<w:tc><w:tcPr>${props.join("")}</w:tcPr>${children}</w:tc>`;
+}
 
+function wTable(rows, columnWidths, options = {}) {
+  const width = columnWidths.reduce((sum, value) => sum + value, 0);
+  const border = options.borders === false
+    ? '<w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders>'
+    : '<w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="D5E2E5"/><w:left w:val="single" w:sz="4" w:space="0" w:color="D5E2E5"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="D5E2E5"/><w:right w:val="single" w:sz="4" w:space="0" w:color="D5E2E5"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="D5E2E5"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="D5E2E5"/></w:tblBorders>';
   return `
-    <article style="max-width:760px;color:#182227;background:#ffffff;font-family:Arial,Helvetica,sans-serif;line-height:1.35;">
-      <header style="display:flex;justify-content:space-between;gap:18px;align-items:center;background:#0b3c49;color:#ffffff;padding:16px;border-radius:8px;">
-        <div style="display:flex;gap:12px;align-items:center;">
-          <img src="${assetUrl("logo.png")}" alt="" style="width:52px;height:52px;border-radius:50%;object-fit:cover;">
-          <div>
-            <div style="font-size:18px;font-weight:700;">ИП «Бауыржан»</div>
-            <div style="color:#bfe0e7;font-size:12px;">Системы туманообразования высокого давления</div>
-          </div>
-        </div>
-        <div style="color:#bfe0e7;font-size:12px;text-align:right;">
-          <strong style="color:#ffffff;">+7 (701) 988-80-25</strong><br>
-          adilnug@gmail.com<br>
-          г. Астана, ул. Аягоз, 1
-        </div>
-      </header>
-
-      <h1 style="margin:30px 0 6px;font-size:30px;line-height:1.05;">КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ</h1>
-      <p style="margin:0 0 18px;color:#64747b;">Поставка и монтаж системы туманообразования «под ключ»</p>
-
-      <table style="width:100%;border-collapse:collapse;margin:0 0 18px;">
-        <tr>
-          <td style="padding:10px;border:1px solid #d5e2e5;"><span style="color:#64747b;font-size:12px;text-transform:uppercase;">Исходящий</span><br><strong>№ ${escapeHtml(quoteNumber)} от ${dateRu()}</strong></td>
-          <td style="padding:10px;border:1px solid #d5e2e5;"><span style="color:#64747b;font-size:12px;text-transform:uppercase;">Объект</span><br><strong>${escapeHtml(objectName)}</strong></td>
-          <td style="padding:10px;border:1px solid #d5e2e5;"><span style="color:#64747b;font-size:12px;text-transform:uppercase;">Город</span><br><strong>${escapeHtml(cityName)}</strong></td>
-        </tr>
-      </table>
-
-      <p>ИП «Бауыржан» предлагает выполнить поставку и профессиональный монтаж системы туманообразования высокого давления. Все цены указаны в тенге (₸) с учётом материалов.</p>
-
-      <table style="width:100%;border-collapse:collapse;margin:18px 0;">
-        <thead>
-          <tr style="background:#0b3c49;color:#ffffff;">
-            <th style="padding:8px;border:1px solid #0b3c49;">№</th>
-            <th style="padding:8px;border:1px solid #0b3c49;text-align:left;">Наименование</th>
-            <th style="padding:8px;border:1px solid #0b3c49;">Кол-во</th>
-            <th style="padding:8px;border:1px solid #0b3c49;">Ед.</th>
-            <th style="padding:8px;border:1px solid #0b3c49;">Цена</th>
-            <th style="padding:8px;border:1px solid #0b3c49;">Сумма</th>
-          </tr>
-        </thead>
-        <tbody>${rowsHtml}</tbody>
-        <tfoot>
-          <tr>
-            <td colspan="5" style="padding:10px;border:1px solid #d5e2e5;text-align:right;font-weight:800;">ИТОГО</td>
-            <td style="padding:10px;border:1px solid #d5e2e5;text-align:right;font-weight:800;">${money(quote.total)}</td>
-          </tr>
-        </tfoot>
-      </table>
-
-      <h2 style="font-size:16px;margin:20px 0 8px;">СОСТАВ РАБОТ</h2>
-      <ul>
-        <li>Монтаж насосного оборудования высокого давления</li>
-        <li>Установка системы водоподготовки и фильтрации</li>
-        <li>Прокладка труб высокого давления</li>
-        <li>Монтаж фитингов и форсунок</li>
-        <li>Подключение к водопроводу и пусконаладка системы</li>
-      </ul>
-
-      <p>Будем рады сотрудничеству и готовы подобрать оптимальное решение под Ваш объект.</p>
-
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:26px;">
-        <div>
-          <div>Индивидуальный предприниматель Бауыржан С. А.</div>
-          <div>______________________</div>
-        </div>
-        <img src="${assetUrl("stamp.png")}" alt="Печать ИП «Бауыржан»" style="width:150px;height:150px;object-fit:contain;transform:rotate(-7deg);">
-      </div>
-    </article>
+    <w:tbl>
+      <w:tblPr><w:tblW w:w="${width}" w:type="dxa"/>${border}<w:tblLook w:firstRow="1" w:lastRow="0" w:firstColumn="0" w:lastColumn="0"/></w:tblPr>
+      <w:tblGrid>${columnWidths.map((columnWidth) => `<w:gridCol w:w="${columnWidth}"/>`).join("")}</w:tblGrid>
+      ${rows.map((row) => `<w:tr>${row.join("")}</w:tr>`).join("")}
+    </w:tbl>
   `;
 }
 
-function copyTextFallback(text) {
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "fixed";
-  textarea.style.left = "-9999px";
-  textarea.style.top = "0";
-  document.body.appendChild(textarea);
-  textarea.select();
-  let copied = false;
-  try {
-    copied = document.execCommand("copy");
-  } catch {
-    copied = false;
-  }
-  textarea.remove();
-  return copied;
+let docxImageId = 1;
+
+function pxToEmu(value) {
+  return Math.round(value * 9525);
 }
 
-async function copyQuoteText() {
-  const plainText = quoteAsFormattedText();
-  const htmlText = quoteAsHtml();
+function wImage(rId, name, width, height) {
+  const id = docxImageId;
+  docxImageId += 1;
+  const cx = pxToEmu(width);
+  const cy = pxToEmu(height);
+  const safeName = xmlEscape(name);
+  return `
+    <w:r>
+      <w:drawing>
+        <wp:inline distT="0" distB="0" distL="0" distR="0">
+          <wp:extent cx="${cx}" cy="${cy}"/>
+          <wp:docPr id="${id}" name="${safeName}" descr="${safeName}"/>
+          <wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr>
+          <a:graphic>
+            <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+              <pic:pic>
+                <pic:nvPicPr><pic:cNvPr id="${id}" name="${safeName}"/><pic:cNvPicPr/></pic:nvPicPr>
+                <pic:blipFill><a:blip r:embed="${rId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
+                <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
+              </pic:pic>
+            </a:graphicData>
+          </a:graphic>
+        </wp:inline>
+      </w:drawing>
+    </w:r>
+  `;
+}
 
-  if (navigator.clipboard?.write && typeof ClipboardItem === "function") {
+function createQuoteDocxDocumentXml({ hasLogo, hasStamp }) {
+  const quote = calculateQuote();
+  const quoteNumber = state.quoteNumber || DEFAULT_STATE.quoteNumber;
+  const objectName = state.objectName || DEFAULT_STATE.objectName;
+  const cityName = state.cityName || DEFAULT_STATE.cityName;
+  docxImageId = 1;
+  const body = [];
+  const brand = "0B3C49";
+  const muted = "64747B";
+  const light = "F7FBFC";
+  const contentWidth = 10460;
+
+  body.push(wTable([[
+    wTableCell(
+      hasLogo
+        ? wParagraph(wImage("rIdLogo", "TUMAN PRO", 54, 54), { alignment: "center" })
+        : wParagraph(wRun("TUMAN PRO", { bold: true, color: "FFFFFF", size: 18 }), { alignment: "center" }),
+      900,
+      { fill: brand, valign: "center" },
+    ),
+    wTableCell([
+      wParagraph(wRun("ИП «Бауыржан»", { bold: true, color: "FFFFFF", size: 28 }), { spacing: { after: 60 } }),
+      wParagraph(wRun("Системы туманообразования высокого давления", { color: "BFE0E7", size: 18 })),
+    ], 5600, { fill: brand, valign: "center" }),
+    wTableCell([
+      wParagraph(wRun("+7 (701) 988-80-25", { bold: true, color: "FFFFFF", size: 20 }), { alignment: "right" }),
+      wParagraph(wRun("adilnug@gmail.com", { color: "BFE0E7", size: 18 }), { alignment: "right" }),
+      wParagraph(wRun("г. Астана, ул. Аягоз, 1", { color: "BFE0E7", size: 18 }), { alignment: "right" }),
+    ], 3960, { fill: brand, valign: "center" }),
+  ]], [900, 5600, 3960], { borders: false }));
+
+  body.push(wParagraph("", { spacing: { after: 260 } }));
+  body.push(wParagraph(wRun("КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ", { bold: true, size: 44 }), { spacing: { after: 80 } }));
+  body.push(wParagraph(wRun("Поставка и монтаж системы туманообразования «под ключ»", { color: muted, size: 22 }), { spacing: { after: 220 } }));
+
+  body.push(wTable([[
+    wTableCell([
+      wParagraph(wRun("ИСХОДЯЩИЙ", { bold: true, color: muted, size: 16 }), { spacing: { after: 40 } }),
+      wParagraph(wRun(`№ ${quoteNumber} от ${dateRu()}`, { bold: true, size: 22 })),
+    ], 3486, { fill: light }),
+    wTableCell([
+      wParagraph(wRun("ОБЪЕКТ", { bold: true, color: muted, size: 16 }), { spacing: { after: 40 } }),
+      wParagraph(wRun(objectName, { bold: true, size: 22 })),
+    ], 3487, { fill: light }),
+    wTableCell([
+      wParagraph(wRun("ГОРОД", { bold: true, color: muted, size: 16 }), { spacing: { after: 40 } }),
+      wParagraph(wRun(cityName, { bold: true, size: 22 })),
+    ], 3487, { fill: light }),
+  ]], [3486, 3487, 3487]));
+
+  body.push(wParagraph("", { spacing: { after: 180 } }));
+  body.push(wParagraph(wRun("ИП «Бауыржан» предлагает выполнить поставку и профессиональный монтаж системы туманообразования высокого давления. Все цены указаны в тенге (₸) с учётом материалов.", { size: 22 }), { spacing: { after: 200 } }));
+
+  const itemWidths = [500, 4420, 840, 650, 2025, 2025];
+  const itemRows = [[
+    wTableCell(wParagraph(wRun("№", { bold: true, color: "FFFFFF", size: 18 }), { alignment: "center" }), itemWidths[0], { fill: brand, valign: "center" }),
+    wTableCell(wParagraph(wRun("Наименование", { bold: true, color: "FFFFFF", size: 18 })), itemWidths[1], { fill: brand, valign: "center" }),
+    wTableCell(wParagraph(wRun("Кол-во", { bold: true, color: "FFFFFF", size: 18 }), { alignment: "center" }), itemWidths[2], { fill: brand, valign: "center" }),
+    wTableCell(wParagraph(wRun("Ед.", { bold: true, color: "FFFFFF", size: 18 }), { alignment: "center" }), itemWidths[3], { fill: brand, valign: "center" }),
+    wTableCell(wParagraph(wRun("Цена", { bold: true, color: "FFFFFF", size: 18 }), { alignment: "right" }), itemWidths[4], { fill: brand, valign: "center" }),
+    wTableCell(wParagraph(wRun("Сумма", { bold: true, color: "FFFFFF", size: 18 }), { alignment: "right" }), itemWidths[5], { fill: brand, valign: "center" }),
+  ]];
+
+  quote.rows.forEach((row, index) => {
+    itemRows.push([
+      wTableCell(wParagraph(wRun(String(index + 1), { size: 18 }), { alignment: "center" }), itemWidths[0], { valign: "center" }),
+      wTableCell([
+        wParagraph(wRun(row.name, { bold: true, size: 18 }), { spacing: { after: 30 } }),
+        wParagraph(wRun(row.description, { color: muted, size: 16 })),
+      ], itemWidths[1], { valign: "center" }),
+      wTableCell(wParagraph(wRun(quantity(row.qty), { size: 18 }), { alignment: "right" }), itemWidths[2], { valign: "center" }),
+      wTableCell(wParagraph(wRun(row.unit, { size: 18 }), { alignment: "center" }), itemWidths[3], { valign: "center" }),
+      wTableCell(wParagraph(wRun(money(row.price), { size: 18 }), { alignment: "right" }), itemWidths[4], { valign: "center" }),
+      wTableCell(wParagraph(wRun(money(row.sum), { bold: true, size: 18 }), { alignment: "right" }), itemWidths[5], { valign: "center" }),
+    ]);
+  });
+
+  itemRows.push([
+    wTableCell(wParagraph(wRun("ИТОГО", { bold: true, size: 22 }), { alignment: "right" }), itemWidths.slice(0, 5).reduce((sum, width) => sum + width, 0), { fill: "F2F8FA", gridSpan: 5 }),
+    wTableCell(wParagraph(wRun(money(quote.total), { bold: true, size: 22 }), { alignment: "right" }), itemWidths[5], { fill: "F2F8FA" }),
+  ]);
+  body.push(wTable(itemRows, itemWidths));
+
+  body.push(wParagraph("", { spacing: { after: 200 } }));
+  body.push(wParagraph(wRun("СОСТАВ РАБОТ", { bold: true, size: 22 }), { spacing: { after: 100 } }));
+  [
+    "Монтаж насосного оборудования высокого давления",
+    "Установка системы водоподготовки и фильтрации",
+    "Прокладка труб высокого давления",
+    "Монтаж фитингов и форсунок",
+    "Подключение к водопроводу и пусконаладка системы",
+  ].forEach((item) => {
+    body.push(wParagraph(wRun(`- ${item}`, { size: 21 }), { spacing: { after: 70 } }));
+  });
+
+  body.push(wParagraph("", { spacing: { after: 140 } }));
+  body.push(wParagraph(wRun("Будем рады сотрудничеству и готовы подобрать оптимальное решение под Ваш объект.", { size: 22 }), { spacing: { after: 200 } }));
+
+  const stampContent = hasStamp
+    ? wParagraph(wImage("rIdStamp", "Печать ИП Бауыржан", 150, 150), { alignment: "center" })
+    : wParagraph(wRun("Печать ИП «Бауыржан» / TUMAN PRO", { bold: true, color: "7B5A16", size: 18 }), { alignment: "center" });
+  body.push(wTable([[
+    wTableCell([
+      wParagraph(wRun("Индивидуальный предприниматель Бауыржан С. А.", { size: 21 }), { spacing: { after: 100 } }),
+      wParagraph(wRun("______________________", { size: 21 })),
+    ], 7000, { valign: "center" }),
+    wTableCell(stampContent, contentWidth - 7000, { valign: "center" }),
+  ]], [7000, contentWidth - 7000], { borders: false }));
+
+  body.push(wParagraph("", { spacing: { after: 100 } }));
+  body.push(wParagraph(wRun("ИП «Бауыржан» · Системы туманообразования", { color: muted, size: 16 }), { alignment: "center" }));
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  <w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:w10="urn:schemas-microsoft-com:office:word" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk" xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" mc:Ignorable="w14 wp14">
+    <w:body>
+      ${body.join("")}
+      <w:sectPr>
+        <w:pgSz w:w="11906" w:h="16838"/>
+        <w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="360" w:footer="360" w:gutter="0"/>
+      </w:sectPr>
+    </w:body>
+  </w:document>`;
+}
+
+function docxStylesXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+    <w:docDefaults>
+      <w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:sz w:val="22"/></w:rPr></w:rPrDefault>
+      <w:pPrDefault><w:pPr><w:spacing w:after="120"/></w:pPr></w:pPrDefault>
+    </w:docDefaults>
+    <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>
+  </w:styles>`;
+}
+
+function docxContentTypesXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+    <Default Extension="xml" ContentType="application/xml"/>
+    <Default Extension="png" ContentType="image/png"/>
+    <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+    <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+  </Types>`;
+}
+
+function docxPackageRelsXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+  </Relationships>`;
+}
+
+function docxDocumentRelsXml({ hasLogo, hasStamp }) {
+  const rels = [
+    '<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>',
+  ];
+  if (hasLogo) rels.push('<Relationship Id="rIdLogo" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo.png"/>');
+  if (hasStamp) rels.push('<Relationship Id="rIdStamp" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/stamp.png"/>');
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels.join("")}</Relationships>`;
+}
+
+function crc32(bytes) {
+  if (!crc32.table) {
+    crc32.table = Array.from({ length: 256 }, (_, index) => {
+      let value = index;
+      for (let bit = 0; bit < 8; bit += 1) {
+        value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+      }
+      return value >>> 0;
+    });
+  }
+  let crc = 0xffffffff;
+  bytes.forEach((byte) => {
+    crc = crc32.table[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  });
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function dosDateTime(date = new Date()) {
+  const time = (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2);
+  const day = date.getDate();
+  const month = date.getMonth() + 1;
+  const year = Math.max(1980, date.getFullYear()) - 1980;
+  return { time, date: (year << 9) | (month << 5) | day };
+}
+
+function binaryHeader(length, writer) {
+  const bytes = new Uint8Array(length);
+  writer(new DataView(bytes.buffer));
+  return bytes;
+}
+
+function concatZipBytes(parts) {
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const output = new Uint8Array(total);
+  let offset = 0;
+  parts.forEach((part) => {
+    output.set(part, offset);
+    offset += part.length;
+  });
+  return output;
+}
+
+function zipData(value) {
+  if (value instanceof Uint8Array) return value;
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  return new TextEncoder().encode(value);
+}
+
+function createZip(files) {
+  const encoder = new TextEncoder();
+  const localParts = [];
+  const centralParts = [];
+  let localOffset = 0;
+  const stamp = dosDateTime();
+
+  Object.entries(files).forEach(([name, value]) => {
+    const nameBytes = encoder.encode(name);
+    const data = zipData(value);
+    const crc = crc32(data);
+    const localHeader = binaryHeader(30, (view) => {
+      view.setUint32(0, 0x04034b50, true);
+      view.setUint16(4, 20, true);
+      view.setUint16(6, 0, true);
+      view.setUint16(8, 0, true);
+      view.setUint16(10, stamp.time, true);
+      view.setUint16(12, stamp.date, true);
+      view.setUint32(14, crc, true);
+      view.setUint32(18, data.length, true);
+      view.setUint32(22, data.length, true);
+      view.setUint16(26, nameBytes.length, true);
+      view.setUint16(28, 0, true);
+    });
+    localParts.push(localHeader, nameBytes, data);
+
+    const centralHeader = binaryHeader(46, (view) => {
+      view.setUint32(0, 0x02014b50, true);
+      view.setUint16(4, 20, true);
+      view.setUint16(6, 20, true);
+      view.setUint16(8, 0, true);
+      view.setUint16(10, 0, true);
+      view.setUint16(12, stamp.time, true);
+      view.setUint16(14, stamp.date, true);
+      view.setUint32(16, crc, true);
+      view.setUint32(20, data.length, true);
+      view.setUint32(24, data.length, true);
+      view.setUint16(28, nameBytes.length, true);
+      view.setUint16(30, 0, true);
+      view.setUint16(32, 0, true);
+      view.setUint16(34, 0, true);
+      view.setUint16(36, 0, true);
+      view.setUint32(38, 0, true);
+      view.setUint32(42, localOffset, true);
+    });
+    centralParts.push(centralHeader, nameBytes);
+    localOffset += localHeader.length + nameBytes.length + data.length;
+  });
+
+  const centralStart = localOffset;
+  const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+  const endHeader = binaryHeader(22, (view) => {
+    view.setUint32(0, 0x06054b50, true);
+    view.setUint16(4, 0, true);
+    view.setUint16(6, 0, true);
+    view.setUint16(8, Object.keys(files).length, true);
+    view.setUint16(10, Object.keys(files).length, true);
+    view.setUint32(12, centralSize, true);
+    view.setUint32(16, centralStart, true);
+    view.setUint16(20, 0, true);
+  });
+
+  return concatZipBytes([...localParts, ...centralParts, endHeader]);
+}
+
+async function imageBytesFromCanvas(src) {
+  const image = await loadImage(src);
+  if (!image) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth || image.width;
+  canvas.height = image.naturalHeight || image.height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(image, 0, 0);
+  return new Promise((resolve) => {
     try {
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          "text/html": new Blob([htmlText], { type: "text/html" }),
-          "text/plain": new Blob([plainText], { type: "text/plain" }),
-        }),
-      ]);
-      setStatus("КП скопировано в HTML и TXT.");
-      return;
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          resolve(null);
+          return;
+        }
+        resolve(new Uint8Array(await blob.arrayBuffer()));
+      }, "image/png");
     } catch {
-      // Fall back to plain text below.
+      resolve(null);
     }
-  }
+  });
+}
 
-  if (navigator.clipboard?.writeText) {
+async function loadAssetBytes(src) {
+  async function fetchBytes(url) {
     try {
-      await navigator.clipboard.writeText(plainText);
-      setStatus("TXT КП скопирован.");
-      return;
+      const response = await fetch(url);
+      if (response.ok) return new Uint8Array(await response.arrayBuffer());
     } catch {
-      // Fall back to the legacy selection API below.
+      return null;
     }
+    return null;
   }
 
-  if (copyTextFallback(plainText)) {
-    setStatus("TXT КП скопирован.");
-  } else {
-    setStatus("Копирование недоступно в этом браузере.");
+  const relativeBytes = await fetchBytes(src);
+  if (relativeBytes) return relativeBytes;
+
+  const publicUrl = new URL(src, PUBLIC_ASSET_BASE_URL).href;
+  const currentUrl = new URL(src, window.location.href).href;
+  if (publicUrl !== currentUrl) {
+    const publicBytes = await fetchBytes(publicUrl);
+    if (publicBytes) return publicBytes;
   }
+
+  try {
+    return await imageBytesFromCanvas(src);
+  } catch {
+    return null;
+  }
+}
+
+async function createQuoteDocxBlob() {
+  const [logoBytes, stampBytes] = await Promise.all([
+    loadAssetBytes("logo.png"),
+    loadAssetBytes("stamp.png"),
+  ]);
+  const hasLogo = Boolean(logoBytes);
+  const hasStamp = Boolean(stampBytes);
+  const files = {
+    "[Content_Types].xml": docxContentTypesXml(),
+    "_rels/.rels": docxPackageRelsXml(),
+    "word/document.xml": createQuoteDocxDocumentXml({ hasLogo, hasStamp }),
+    "word/styles.xml": docxStylesXml(),
+    "word/_rels/document.xml.rels": docxDocumentRelsXml({ hasLogo, hasStamp }),
+  };
+  if (hasLogo) files["word/media/logo.png"] = logoBytes;
+  if (hasStamp) files["word/media/stamp.png"] = stampBytes;
+  return new Blob([createZip(files)], { type: DOCX_MIME });
 }
 
 function safeFilePart(value) {
@@ -1044,6 +1286,10 @@ function quoteFileName() {
   return `КП_${number}_${objectName}.pdf`;
 }
 
+function quoteDocxFileName() {
+  return quoteFileName().replace(/\.pdf$/i, ".docx");
+}
+
 function downloadBlob(blob, fileName) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -1119,6 +1365,25 @@ async function shareQuotePdf() {
   }
 }
 
+async function saveQuoteWord() {
+  if (isPreparingWordFile) return;
+  isPreparingWordFile = true;
+  const button = document.querySelector("#download-word-button");
+  button.disabled = true;
+  setStatus("Готовлю Word файл...");
+  try {
+    const blob = await createQuoteDocxBlob();
+    downloadBlob(blob, quoteDocxFileName());
+    setStatus("Word файл сохранен.");
+  } catch (error) {
+    console.error(error);
+    setStatus("Не удалось создать Word файл.");
+  } finally {
+    button.disabled = false;
+    isPreparingWordFile = false;
+  }
+}
+
 function setStatus(message) {
   statusLine.textContent = message;
   window.clearTimeout(setStatus.timer);
@@ -1143,7 +1408,7 @@ nextQuoteButton.addEventListener("click", () => shiftQuoteNumber(1));
 
 document.querySelector("#share-pdf-button").addEventListener("click", shareQuotePdf);
 
-document.querySelector("#copy-button").addEventListener("click", copyQuoteText);
+document.querySelector("#download-word-button").addEventListener("click", saveQuoteWord);
 
 document.querySelector("#reset-settings").addEventListener("click", () => {
   state.settings = clone(DEFAULT_STATE.settings);

@@ -1,4 +1,4 @@
-const CACHE_NAME = "kp-fog-app-v19";
+const CACHE_NAME = "kp-fog-app-v21";
 const ASSETS = [
   "./",
   "./index.html",
