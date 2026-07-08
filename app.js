@@ -1,24 +1,51 @@
 const STORAGE_KEY = "kp-fog-app-v1";
+const LOGO_SRC = "logo.png";
+const STAMP_SRC = "stamp.png";
 
 const DEFAULT_STATE = {
   quoteNumber: "64",
   objectName: "Бейбарыс",
   cityName: "Астана",
-  nozzleCount: 40,
-  pipeLength: 40,
+  quantities: {
+    high: {
+      nozzleCount: 40,
+      pipeLength: 40,
+    },
+    low: {
+      nozzleCount: 16,
+      pipeLength: 18,
+    },
+  },
+  selectedTypes: {
+    high: true,
+    low: false,
+  },
   settings: {
-    pumpPrice1: 280000,
-    pumpPrice2: 300000,
-    pumpPrice3: 320000,
-    pumpPrice4: 360000,
-    pumpPrice5: 400000,
-    adapterPrice: 1000,
-    pipePrice: 1600,
-    fittingPrice: 3500,
-    nozzlePrice: 2600,
-    plugPrice: 2600,
-    installationPrice: 110000,
-    filterPrice: 7000,
+    high: {
+      pumpPrice1: 280000,
+      pumpPrice2: 300000,
+      pumpPrice3: 320000,
+      pumpPrice4: 360000,
+      pumpPrice5: 400000,
+      adapterPrice: 1000,
+      pipePrice: 1600,
+      fittingPrice: 3500,
+      nozzlePrice: 2600,
+      plugPrice: 2600,
+      installationPrice: 110000,
+      filterPrice: 7000,
+    },
+    low: {
+      pipePrice: 800,
+      adapterPrice: 1000,
+      fittingPrice: 1200,
+      nozzlePrice: 2300,
+      plugPrice: 1000,
+      installationPrice: 60000,
+      pumpPrice: 60000,
+      tankPrice: 35000,
+      plumbingPrepPrice: 7000,
+    },
   },
 };
 
@@ -26,17 +53,33 @@ const fields = {
   quoteNumber: document.querySelector("#quote-number"),
   objectName: document.querySelector("#object-name"),
   cityName: document.querySelector("#city-name"),
-  nozzleCount: document.querySelector("#nozzle-count"),
-  pipeLength: document.querySelector("#pipe-length"),
-  pumpPrice1: document.querySelector("#price-pump-1"),
-  pumpPrice2: document.querySelector("#price-pump-2"),
-  pumpPrice3: document.querySelector("#price-pump-3"),
-  pumpPrice4: document.querySelector("#price-pump-4"),
-  pumpPrice5: document.querySelector("#price-pump-5"),
-  pipePrice: document.querySelector("#price-pipe"),
-  fittingPrice: document.querySelector("#price-fitting"),
-  nozzlePrice: document.querySelector("#price-nozzle"),
-  installationPrice: document.querySelector("#price-installation"),
+  highNozzleCount: document.querySelector("#high-nozzle-count"),
+  highPipeLength: document.querySelector("#high-pipe-length"),
+  lowNozzleCount: document.querySelector("#low-nozzle-count"),
+  lowPipeLength: document.querySelector("#low-pipe-length"),
+  selectedHigh: document.querySelector("#type-high"),
+  selectedLow: document.querySelector("#type-low"),
+  highPumpPrice1: document.querySelector("#price-high-pump-1"),
+  highPumpPrice2: document.querySelector("#price-high-pump-2"),
+  highPumpPrice3: document.querySelector("#price-high-pump-3"),
+  highPumpPrice4: document.querySelector("#price-high-pump-4"),
+  highPumpPrice5: document.querySelector("#price-high-pump-5"),
+  highAdapterPrice: document.querySelector("#price-high-adapter"),
+  highPipePrice: document.querySelector("#price-high-pipe"),
+  highFittingPrice: document.querySelector("#price-high-fitting"),
+  highNozzlePrice: document.querySelector("#price-high-nozzle"),
+  highPlugPrice: document.querySelector("#price-high-plug"),
+  highInstallationPrice: document.querySelector("#price-high-installation"),
+  highFilterPrice: document.querySelector("#price-high-filter"),
+  lowPipePrice: document.querySelector("#price-low-pipe"),
+  lowAdapterPrice: document.querySelector("#price-low-adapter"),
+  lowFittingPrice: document.querySelector("#price-low-fitting"),
+  lowNozzlePrice: document.querySelector("#price-low-nozzle"),
+  lowPlugPrice: document.querySelector("#price-low-plug"),
+  lowInstallationPrice: document.querySelector("#price-low-installation"),
+  lowPumpPrice: document.querySelector("#price-low-pump"),
+  lowTankPrice: document.querySelector("#price-low-tank"),
+  lowPlumbingPrepPrice: document.querySelector("#price-low-plumbing-prep"),
 };
 
 const preview = document.querySelector("#quote-preview");
@@ -57,17 +100,52 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function migrateState(saved) {
+  const data = saved && typeof saved === "object" ? saved : {};
+  const hasNestedSettings = Boolean(data.settings?.high || data.settings?.low);
+  const flatSettings = data.settings && !hasNestedSettings ? data.settings : {};
+  const highQuantityFallback = {
+    nozzleCount: data.nozzleCount ?? DEFAULT_STATE.quantities.high.nozzleCount,
+    pipeLength: data.pipeLength ?? DEFAULT_STATE.quantities.high.pipeLength,
+  };
+
+  return {
+    quoteNumber: data.quoteNumber ?? DEFAULT_STATE.quoteNumber,
+    objectName: data.objectName ?? DEFAULT_STATE.objectName,
+    cityName: data.cityName ?? DEFAULT_STATE.cityName,
+    quantities: {
+      high: {
+        ...DEFAULT_STATE.quantities.high,
+        ...highQuantityFallback,
+        ...(data.quantities?.high || {}),
+      },
+      low: {
+        ...DEFAULT_STATE.quantities.low,
+        ...(data.quantities?.low || {}),
+      },
+    },
+    selectedTypes: {
+      ...DEFAULT_STATE.selectedTypes,
+      ...(data.selectedTypes || {}),
+    },
+    settings: {
+      high: {
+        ...DEFAULT_STATE.settings.high,
+        ...flatSettings,
+        ...(data.settings?.high || {}),
+      },
+      low: {
+        ...DEFAULT_STATE.settings.low,
+        ...(data.settings?.low || {}),
+      },
+    },
+  };
+}
+
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return {
-      ...DEFAULT_STATE,
-      ...saved,
-      settings: {
-        ...DEFAULT_STATE.settings,
-        ...(saved?.settings || {}),
-      },
-    };
+    return migrateState(saved);
   } catch {
     return clone(DEFAULT_STATE);
   }
@@ -156,7 +234,37 @@ function shiftQuoteNumber(direction) {
   setStatus(`Номер КП: ${state.quoteNumber}`);
 }
 
-function pumpForNozzles(nozzleCount, settings) {
+function normalizeSelectedTypes() {
+  if (!state.selectedTypes.high && !state.selectedTypes.low) {
+    state.selectedTypes.high = true;
+    if (fields.selectedHigh) fields.selectedHigh.checked = true;
+    setStatus("Выберите минимум один тип КП.");
+  }
+}
+
+function selectedTypeKeys() {
+  normalizeSelectedTypes();
+  return [
+    state.selectedTypes.high ? "high" : null,
+    state.selectedTypes.low ? "low" : null,
+  ].filter(Boolean);
+}
+
+function incrementQuoteNumber(value, offset) {
+  const current = String(value || DEFAULT_STATE.quoteNumber);
+  const match = current.match(/^(.*?)(\d+)(\D*)$/);
+  if (!match) return offset ? `${current}-${offset + 1}` : current;
+  const [, prefix, digits, suffix] = match;
+  const next = Math.max(1, Number(digits) + offset);
+  return `${prefix}${String(next).padStart(digits.length, "0")}${suffix}`;
+}
+
+function quoteNumberFor(index) {
+  const quoteNumber = state.quoteNumber || DEFAULT_STATE.quoteNumber;
+  return incrementQuoteNumber(quoteNumber, index);
+}
+
+function pumpForHighNozzles(nozzleCount, settings) {
   if (nozzleCount <= 20) return { liters: 1, price: settings.pumpPrice1 };
   if (nozzleCount <= 40) return { liters: 2, price: settings.pumpPrice2 };
   if (nozzleCount <= 55) return { liters: 3, price: settings.pumpPrice3 };
@@ -164,12 +272,13 @@ function pumpForNozzles(nozzleCount, settings) {
   return { liters: 5, price: settings.pumpPrice5 };
 }
 
-function calculateQuote() {
-  const nozzleCount = wholeNumber(state.nozzleCount, DEFAULT_STATE.nozzleCount);
-  const pipeLength = positiveNumber(state.pipeLength, DEFAULT_STATE.pipeLength);
-  const settings = state.settings;
+function calculateHighQuote() {
+  const quantityState = state.quantities?.high || DEFAULT_STATE.quantities.high;
+  const nozzleCount = wholeNumber(quantityState.nozzleCount, DEFAULT_STATE.quantities.high.nozzleCount);
+  const pipeLength = positiveNumber(quantityState.pipeLength, DEFAULT_STATE.quantities.high.pipeLength);
+  const settings = state.settings.high;
   const fittings = nozzleCount;
-  const pump = pumpForNozzles(nozzleCount, settings);
+  const pump = pumpForHighNozzles(nozzleCount, settings);
 
   const rows = [
     {
@@ -236,26 +345,144 @@ function calculateQuote() {
   const total = rows.reduce((sum, row) => sum + row.sum, 0);
 
   return {
+    type: "high",
+    shortCode: "ВД",
+    label: "Высокое давление",
+    brandColor: "#0b3c49",
+    tableColor: "#2e9cb5",
+    mutedColor: "#bfe0e7",
+    systemLine: "Системы туманообразования высокого давления",
+    titleLine: "Поставка и монтаж системы туманообразования высокого давления «под ключ»",
+    intro: "ИП «Бауыржан» предлагает выполнить поставку и профессиональный монтаж системы туманообразования высокого давления. Все цены указаны в тенге (₸) с учётом материалов.",
+    workItems: [
+      "Монтаж насосного оборудования высокого давления",
+      "Установка системы водоподготовки и фильтрации",
+      "Прокладка труб высокого давления",
+      "Монтаж фитингов и форсунок",
+      "Подключение к водопроводу и пусконаладка системы",
+    ],
     rows,
     total,
     nozzleCount,
     pipeLength,
     fittings,
-    pumpLiters: pump.liters,
+    pumpLabel: `${pump.liters} л`,
   };
 }
 
-function renderQuote() {
-  const quote = calculateQuote();
+function calculateLowQuote() {
+  const quantityState = state.quantities?.low || DEFAULT_STATE.quantities.low;
+  const nozzleCount = wholeNumber(quantityState.nozzleCount, DEFAULT_STATE.quantities.low.nozzleCount);
+  const pipeLength = positiveNumber(quantityState.pipeLength, DEFAULT_STATE.quantities.low.pipeLength);
+  const settings = state.settings.low;
+  const fittings = nozzleCount;
+
+  const rows = [
+    {
+      name: "Труба низкого давления",
+      description: "Рабочее давление - до 6 бар",
+      qty: pipeLength,
+      unit: "м",
+      price: settings.pipePrice,
+    },
+    {
+      name: "Переходник Slip Lock",
+      description: 'Пластик · резьба 1/4" · сталь · до 10 бар',
+      qty: 1,
+      unit: "шт",
+      price: settings.adapterPrice,
+    },
+    {
+      name: "Фитинг Slip Lock для форсунки",
+      description: "Пластик · до 10 бар",
+      qty: fittings,
+      unit: "шт",
+      price: settings.fittingPrice,
+    },
+    {
+      name: "Форсунка низкого давления с фильтром",
+      description: "Отверстие #3 - 0,3 мм · противокапельная система · керамический сердечник · латунь",
+      qty: nozzleCount,
+      unit: "шт",
+      price: settings.nozzlePrice,
+    },
+    {
+      name: "Заглушка для трубки",
+      description: 'Пластик · 1/4" · до 10 бар',
+      qty: 1,
+      unit: "шт",
+      price: settings.plugPrice,
+    },
+    {
+      name: "Монтаж системы",
+      description: "Установка оборудования, труб, фитингов и форсунок",
+      qty: 1,
+      unit: "шт",
+      price: settings.installationPrice,
+    },
+    {
+      name: "Насос",
+      description: "Низкого давления, 4 бара",
+      qty: 1,
+      unit: "шт",
+      price: settings.pumpPrice,
+    },
+    {
+      name: "Емкость пластиковая, 50 литров",
+      description: "Резервуар для воды",
+      qty: 1,
+      unit: "шт",
+      price: settings.tankPrice,
+    },
+    {
+      name: "Сантехническая подготовка",
+      description: "Подключение к водопроводу, включая материалы",
+      qty: 1,
+      unit: "усл.",
+      price: settings.plumbingPrepPrice,
+    },
+  ].map((row) => ({
+    ...row,
+    sum: row.qty * row.price,
+  }));
+
+  const total = rows.reduce((sum, row) => sum + row.sum, 0);
+
+  return {
+    type: "low",
+    shortCode: "НД",
+    label: "Низкое давление",
+    brandColor: "#0c4c3f",
+    tableColor: "#116b57",
+    mutedColor: "#cfe6dd",
+    systemLine: "Системы туманообразования низкого давления",
+    titleLine: "Поставка и монтаж системы туманообразования низкого давления «под ключ»",
+    intro: "ИП «Бауыржан» предлагает выполнить поставку и профессиональный монтаж системы туманообразования низкого давления. Все цены указаны в тенге (₸) с учётом материалов.",
+    workItems: [
+      "Монтаж насосного оборудования низкого давления",
+      "Установка пластиковой емкости для воды",
+      "Прокладка трубок низкого давления",
+      "Монтаж фитингов и форсунок",
+      "Сантехническая подготовка и подключение к водопроводу",
+    ],
+    rows,
+    total,
+    nozzleCount,
+    pipeLength,
+    fittings,
+    pumpLabel: "4 бар",
+  };
+}
+
+function calculateSelectedQuotes() {
+  return selectedTypeKeys().map((type) => (type === "high" ? calculateHighQuote() : calculateLowQuote()));
+}
+
+function renderQuoteDocumentHtml(quote, displayNumber) {
   const quoteNumber = state.quoteNumber || DEFAULT_STATE.quoteNumber;
   const objectName = state.objectName || DEFAULT_STATE.objectName;
   const cityName = state.cityName || DEFAULT_STATE.cityName;
   const today = dateRu();
-
-  summaryFittings.textContent = plainNumber(quote.fittings);
-  summaryPump.textContent = `${quote.pumpLiters} л`;
-  summaryPipe.textContent = `${quantity(quote.pipeLength)} м`;
-  summaryTotal.textContent = money(quote.total);
 
   const rowsHtml = quote.rows
     .map((row, index) => `
@@ -270,13 +497,14 @@ function renderQuote() {
     `)
     .join("");
 
-  preview.innerHTML = `
+  return `
+    <article class="quote-document quote-${quote.type}" style="--quote-brand: ${quote.brandColor}; --quote-brand-muted: ${quote.mutedColor};">
     <header class="doc-header">
       <div class="doc-company">
-        <div class="doc-logo"><img src="logo.png" alt="" /></div>
+        <div class="doc-logo"><img src="${LOGO_SRC}" alt="" /></div>
         <div>
           <strong>ИП «Бауыржан»</strong>
-          <span>Системы туманообразования высокого давления</span>
+          <span>${escapeHtml(quote.systemLine)}</span>
         </div>
       </div>
       <div class="doc-contact">
@@ -288,13 +516,13 @@ function renderQuote() {
 
     <section class="doc-title">
       <h2>КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ</h2>
-      <p>Поставка и монтаж системы туманообразования «под ключ»</p>
+      <p>${escapeHtml(quote.titleLine)}</p>
     </section>
 
     <section class="meta-grid">
       <div class="meta-cell">
         <span>Исходящий</span>
-        <strong>№ ${escapeHtml(quoteNumber)} от ${today}</strong>
+        <strong>№ ${escapeHtml(displayNumber || quoteNumber)} от ${today}</strong>
       </div>
       <div class="meta-cell">
         <span>Объект</span>
@@ -306,7 +534,7 @@ function renderQuote() {
       </div>
     </section>
 
-    <p class="intro">ИП «Бауыржан» предлагает выполнить поставку и профессиональный монтаж системы туманообразования высокого давления. Все цены указаны в тенге (₸) с учётом материалов.</p>
+    <p class="intro">${escapeHtml(quote.intro)}</p>
 
     <table class="items-table">
       <thead>
@@ -331,11 +559,7 @@ function renderQuote() {
     <section class="work-list">
       <h3>СОСТАВ РАБОТ</h3>
       <ul>
-        <li>Монтаж насосного оборудования высокого давления</li>
-        <li>Установка системы водоподготовки и фильтрации</li>
-        <li>Прокладка труб высокого давления</li>
-        <li>Монтаж фитингов и форсунок</li>
-        <li>Подключение к водопроводу и пусконаладка системы</li>
+        ${quote.workItems.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
       </ul>
     </section>
 
@@ -346,28 +570,59 @@ function renderQuote() {
         <span>Индивидуальный предприниматель Бауыржан С. А.</span>
         <span>______________________</span>
       </div>
-      <img class="stamp-image" src="stamp.png" alt="Печать ИП «Бауыржан»" />
+      <img class="stamp-image" src="${STAMP_SRC}" alt="Печать ИП «Бауыржан»" />
     </section>
 
     <footer class="doc-footer">ИП «Бауыржан» · Системы туманообразования</footer>
+    </article>
   `;
+}
+
+function renderQuote() {
+  const quotes = calculateSelectedQuotes();
+  const total = quotes.reduce((sum, quote) => sum + quote.total, 0);
+
+  summaryFittings.textContent = quotes.map((quote) => `${quote.shortCode} ${plainNumber(quote.fittings)}`).join(" / ");
+  summaryPump.textContent = quotes.map((quote) => `${quote.shortCode} ${quote.pumpLabel}`).join(" / ");
+  summaryPipe.textContent = quotes.map((quote) => `${quote.shortCode} ${quantity(quote.pipeLength)} м`).join(" / ");
+  summaryTotal.textContent = money(total);
+
+  preview.innerHTML = quotes
+    .map((quote, index) => renderQuoteDocumentHtml(quote, quoteNumberFor(index)))
+    .join("");
 }
 
 function syncFieldsFromState() {
   fields.quoteNumber.value = state.quoteNumber;
   fields.objectName.value = state.objectName;
   fields.cityName.value = state.cityName;
-  fields.nozzleCount.value = state.nozzleCount;
-  fields.pipeLength.value = state.pipeLength;
-  fields.pumpPrice1.value = state.settings.pumpPrice1;
-  fields.pumpPrice2.value = state.settings.pumpPrice2;
-  fields.pumpPrice3.value = state.settings.pumpPrice3;
-  fields.pumpPrice4.value = state.settings.pumpPrice4;
-  fields.pumpPrice5.value = state.settings.pumpPrice5;
-  fields.pipePrice.value = state.settings.pipePrice;
-  fields.fittingPrice.value = state.settings.fittingPrice;
-  fields.nozzlePrice.value = state.settings.nozzlePrice;
-  fields.installationPrice.value = state.settings.installationPrice;
+  fields.highNozzleCount.value = state.quantities.high.nozzleCount;
+  fields.highPipeLength.value = state.quantities.high.pipeLength;
+  fields.lowNozzleCount.value = state.quantities.low.nozzleCount;
+  fields.lowPipeLength.value = state.quantities.low.pipeLength;
+  fields.selectedHigh.checked = state.selectedTypes.high;
+  fields.selectedLow.checked = state.selectedTypes.low;
+  fields.highPumpPrice1.value = state.settings.high.pumpPrice1;
+  fields.highPumpPrice2.value = state.settings.high.pumpPrice2;
+  fields.highPumpPrice3.value = state.settings.high.pumpPrice3;
+  fields.highPumpPrice4.value = state.settings.high.pumpPrice4;
+  fields.highPumpPrice5.value = state.settings.high.pumpPrice5;
+  fields.highAdapterPrice.value = state.settings.high.adapterPrice;
+  fields.highPipePrice.value = state.settings.high.pipePrice;
+  fields.highFittingPrice.value = state.settings.high.fittingPrice;
+  fields.highNozzlePrice.value = state.settings.high.nozzlePrice;
+  fields.highPlugPrice.value = state.settings.high.plugPrice;
+  fields.highInstallationPrice.value = state.settings.high.installationPrice;
+  fields.highFilterPrice.value = state.settings.high.filterPrice;
+  fields.lowPipePrice.value = state.settings.low.pipePrice;
+  fields.lowAdapterPrice.value = state.settings.low.adapterPrice;
+  fields.lowFittingPrice.value = state.settings.low.fittingPrice;
+  fields.lowNozzlePrice.value = state.settings.low.nozzlePrice;
+  fields.lowPlugPrice.value = state.settings.low.plugPrice;
+  fields.lowInstallationPrice.value = state.settings.low.installationPrice;
+  fields.lowPumpPrice.value = state.settings.low.pumpPrice;
+  fields.lowTankPrice.value = state.settings.low.tankPrice;
+  fields.lowPlumbingPrepPrice.value = state.settings.low.plumbingPrepPrice;
 }
 
 function updateStateFromField(event) {
@@ -375,17 +630,37 @@ function updateStateFromField(event) {
   if (target === fields.quoteNumber) state.quoteNumber = target.value.trim();
   if (target === fields.objectName) state.objectName = target.value.trim();
   if (target === fields.cityName) state.cityName = target.value.trim();
-  if (target === fields.nozzleCount) state.nozzleCount = wholeNumber(target.value, DEFAULT_STATE.nozzleCount);
-  if (target === fields.pipeLength) state.pipeLength = positiveNumber(target.value, DEFAULT_STATE.pipeLength);
-  if (target === fields.pumpPrice1) state.settings.pumpPrice1 = numberFromField(target.value, DEFAULT_STATE.settings.pumpPrice1);
-  if (target === fields.pumpPrice2) state.settings.pumpPrice2 = numberFromField(target.value, DEFAULT_STATE.settings.pumpPrice2);
-  if (target === fields.pumpPrice3) state.settings.pumpPrice3 = numberFromField(target.value, DEFAULT_STATE.settings.pumpPrice3);
-  if (target === fields.pumpPrice4) state.settings.pumpPrice4 = numberFromField(target.value, DEFAULT_STATE.settings.pumpPrice4);
-  if (target === fields.pumpPrice5) state.settings.pumpPrice5 = numberFromField(target.value, DEFAULT_STATE.settings.pumpPrice5);
-  if (target === fields.pipePrice) state.settings.pipePrice = numberFromField(target.value, DEFAULT_STATE.settings.pipePrice);
-  if (target === fields.fittingPrice) state.settings.fittingPrice = numberFromField(target.value, DEFAULT_STATE.settings.fittingPrice);
-  if (target === fields.nozzlePrice) state.settings.nozzlePrice = numberFromField(target.value, DEFAULT_STATE.settings.nozzlePrice);
-  if (target === fields.installationPrice) state.settings.installationPrice = numberFromField(target.value, DEFAULT_STATE.settings.installationPrice);
+  if (!state.quantities) state.quantities = clone(DEFAULT_STATE.quantities);
+  if (!state.selectedTypes) state.selectedTypes = clone(DEFAULT_STATE.selectedTypes);
+  if (!state.settings?.high || !state.settings?.low) state.settings = migrateState(state).settings;
+  if (target === fields.highNozzleCount) state.quantities.high.nozzleCount = wholeNumber(target.value, DEFAULT_STATE.quantities.high.nozzleCount);
+  if (target === fields.highPipeLength) state.quantities.high.pipeLength = positiveNumber(target.value, DEFAULT_STATE.quantities.high.pipeLength);
+  if (target === fields.lowNozzleCount) state.quantities.low.nozzleCount = wholeNumber(target.value, DEFAULT_STATE.quantities.low.nozzleCount);
+  if (target === fields.lowPipeLength) state.quantities.low.pipeLength = positiveNumber(target.value, DEFAULT_STATE.quantities.low.pipeLength);
+  if (target === fields.selectedHigh) state.selectedTypes.high = target.checked;
+  if (target === fields.selectedLow) state.selectedTypes.low = target.checked;
+  if (target === fields.highPumpPrice1) state.settings.high.pumpPrice1 = numberFromField(target.value, DEFAULT_STATE.settings.high.pumpPrice1);
+  if (target === fields.highPumpPrice2) state.settings.high.pumpPrice2 = numberFromField(target.value, DEFAULT_STATE.settings.high.pumpPrice2);
+  if (target === fields.highPumpPrice3) state.settings.high.pumpPrice3 = numberFromField(target.value, DEFAULT_STATE.settings.high.pumpPrice3);
+  if (target === fields.highPumpPrice4) state.settings.high.pumpPrice4 = numberFromField(target.value, DEFAULT_STATE.settings.high.pumpPrice4);
+  if (target === fields.highPumpPrice5) state.settings.high.pumpPrice5 = numberFromField(target.value, DEFAULT_STATE.settings.high.pumpPrice5);
+  if (target === fields.highAdapterPrice) state.settings.high.adapterPrice = numberFromField(target.value, DEFAULT_STATE.settings.high.adapterPrice);
+  if (target === fields.highPipePrice) state.settings.high.pipePrice = numberFromField(target.value, DEFAULT_STATE.settings.high.pipePrice);
+  if (target === fields.highFittingPrice) state.settings.high.fittingPrice = numberFromField(target.value, DEFAULT_STATE.settings.high.fittingPrice);
+  if (target === fields.highNozzlePrice) state.settings.high.nozzlePrice = numberFromField(target.value, DEFAULT_STATE.settings.high.nozzlePrice);
+  if (target === fields.highPlugPrice) state.settings.high.plugPrice = numberFromField(target.value, DEFAULT_STATE.settings.high.plugPrice);
+  if (target === fields.highInstallationPrice) state.settings.high.installationPrice = numberFromField(target.value, DEFAULT_STATE.settings.high.installationPrice);
+  if (target === fields.highFilterPrice) state.settings.high.filterPrice = numberFromField(target.value, DEFAULT_STATE.settings.high.filterPrice);
+  if (target === fields.lowPipePrice) state.settings.low.pipePrice = numberFromField(target.value, DEFAULT_STATE.settings.low.pipePrice);
+  if (target === fields.lowAdapterPrice) state.settings.low.adapterPrice = numberFromField(target.value, DEFAULT_STATE.settings.low.adapterPrice);
+  if (target === fields.lowFittingPrice) state.settings.low.fittingPrice = numberFromField(target.value, DEFAULT_STATE.settings.low.fittingPrice);
+  if (target === fields.lowNozzlePrice) state.settings.low.nozzlePrice = numberFromField(target.value, DEFAULT_STATE.settings.low.nozzlePrice);
+  if (target === fields.lowPlugPrice) state.settings.low.plugPrice = numberFromField(target.value, DEFAULT_STATE.settings.low.plugPrice);
+  if (target === fields.lowInstallationPrice) state.settings.low.installationPrice = numberFromField(target.value, DEFAULT_STATE.settings.low.installationPrice);
+  if (target === fields.lowPumpPrice) state.settings.low.pumpPrice = numberFromField(target.value, DEFAULT_STATE.settings.low.pumpPrice);
+  if (target === fields.lowTankPrice) state.settings.low.tankPrice = numberFromField(target.value, DEFAULT_STATE.settings.low.tankPrice);
+  if (target === fields.lowPlumbingPrepPrice) state.settings.low.plumbingPrepPrice = numberFromField(target.value, DEFAULT_STATE.settings.low.plumbingPrepPrice);
+  normalizeSelectedTypes();
   saveState();
   renderQuote();
 }
@@ -484,14 +759,16 @@ function wImage(rId, name, width, height) {
   `;
 }
 
-function createQuoteDocxDocumentXml({ hasLogo, hasStamp }) {
-  const quote = calculateQuote();
-  const quoteNumber = state.quoteNumber || DEFAULT_STATE.quoteNumber;
+function docxColor(value, fallback = "0B3C49") {
+  return String(value || fallback).replace("#", "").toUpperCase();
+}
+
+function appendQuoteDocxBody(body, quote, displayNumber, { hasLogo, hasStamp }) {
   const objectName = state.objectName || DEFAULT_STATE.objectName;
   const cityName = state.cityName || DEFAULT_STATE.cityName;
-  docxImageId = 1;
-  const body = [];
-  const brand = "0B3C49";
+  const brand = docxColor(quote.brandColor);
+  const tableBrand = docxColor(quote.tableColor || quote.brandColor);
+  const brandMuted = docxColor(quote.mutedColor, "BFE0E7");
   const muted = "64747B";
   const light = "F7FBFC";
   const contentWidth = 10460;
@@ -506,23 +783,23 @@ function createQuoteDocxDocumentXml({ hasLogo, hasStamp }) {
     ),
     wTableCell([
       wParagraph(wRun("ИП «Бауыржан»", { bold: true, color: "FFFFFF", size: 28 }), { spacing: { after: 60 } }),
-      wParagraph(wRun("Системы туманообразования высокого давления", { color: "BFE0E7", size: 18 })),
+      wParagraph(wRun(quote.systemLine, { color: brandMuted, size: 18 })),
     ], 5600, { fill: brand, valign: "center" }),
     wTableCell([
       wParagraph(wRun("+7 (701) 988-80-25", { bold: true, color: "FFFFFF", size: 20 }), { alignment: "right" }),
-      wParagraph(wRun("adilnug@gmail.com", { color: "BFE0E7", size: 18 }), { alignment: "right" }),
-      wParagraph(wRun("г. Астана, ул. Аягоз, 1", { color: "BFE0E7", size: 18 }), { alignment: "right" }),
+      wParagraph(wRun("adilnug@gmail.com", { color: brandMuted, size: 18 }), { alignment: "right" }),
+      wParagraph(wRun("г. Астана, ул. Аягоз, 1", { color: brandMuted, size: 18 }), { alignment: "right" }),
     ], 3960, { fill: brand, valign: "center" }),
   ]], [900, 5600, 3960], { borders: false }));
 
   body.push(wParagraph("", { spacing: { after: 260 } }));
   body.push(wParagraph(wRun("КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ", { bold: true, size: 44 }), { spacing: { after: 80 } }));
-  body.push(wParagraph(wRun("Поставка и монтаж системы туманообразования «под ключ»", { color: muted, size: 22 }), { spacing: { after: 220 } }));
+  body.push(wParagraph(wRun(quote.titleLine, { color: muted, size: 22 }), { spacing: { after: 220 } }));
 
   body.push(wTable([[
     wTableCell([
       wParagraph(wRun("ИСХОДЯЩИЙ", { bold: true, color: muted, size: 16 }), { spacing: { after: 40 } }),
-      wParagraph(wRun(`№ ${quoteNumber} от ${dateRu()}`, { bold: true, size: 22 })),
+      wParagraph(wRun(`№ ${displayNumber} от ${dateRu()}`, { bold: true, size: 22 })),
     ], 3486, { fill: light }),
     wTableCell([
       wParagraph(wRun("ОБЪЕКТ", { bold: true, color: muted, size: 16 }), { spacing: { after: 40 } }),
@@ -535,16 +812,16 @@ function createQuoteDocxDocumentXml({ hasLogo, hasStamp }) {
   ]], [3486, 3487, 3487]));
 
   body.push(wParagraph("", { spacing: { after: 180 } }));
-  body.push(wParagraph(wRun("ИП «Бауыржан» предлагает выполнить поставку и профессиональный монтаж системы туманообразования высокого давления. Все цены указаны в тенге (₸) с учётом материалов.", { size: 22 }), { spacing: { after: 200 } }));
+  body.push(wParagraph(wRun(quote.intro, { size: 22 }), { spacing: { after: 200 } }));
 
   const itemWidths = [500, 4420, 840, 650, 2025, 2025];
   const itemRows = [[
-    wTableCell(wParagraph(wRun("№", { bold: true, color: "FFFFFF", size: 18 }), { alignment: "center" }), itemWidths[0], { fill: brand, valign: "center" }),
-    wTableCell(wParagraph(wRun("Наименование", { bold: true, color: "FFFFFF", size: 18 })), itemWidths[1], { fill: brand, valign: "center" }),
-    wTableCell(wParagraph(wRun("Кол-во", { bold: true, color: "FFFFFF", size: 18 }), { alignment: "center" }), itemWidths[2], { fill: brand, valign: "center" }),
-    wTableCell(wParagraph(wRun("Ед.", { bold: true, color: "FFFFFF", size: 18 }), { alignment: "center" }), itemWidths[3], { fill: brand, valign: "center" }),
-    wTableCell(wParagraph(wRun("Цена", { bold: true, color: "FFFFFF", size: 18 }), { alignment: "right" }), itemWidths[4], { fill: brand, valign: "center" }),
-    wTableCell(wParagraph(wRun("Сумма", { bold: true, color: "FFFFFF", size: 18 }), { alignment: "right" }), itemWidths[5], { fill: brand, valign: "center" }),
+    wTableCell(wParagraph(wRun("№", { bold: true, color: "FFFFFF", size: 18 }), { alignment: "center" }), itemWidths[0], { fill: tableBrand, valign: "center" }),
+    wTableCell(wParagraph(wRun("Наименование", { bold: true, color: "FFFFFF", size: 18 })), itemWidths[1], { fill: tableBrand, valign: "center" }),
+    wTableCell(wParagraph(wRun("Кол-во", { bold: true, color: "FFFFFF", size: 18 }), { alignment: "center" }), itemWidths[2], { fill: tableBrand, valign: "center" }),
+    wTableCell(wParagraph(wRun("Ед.", { bold: true, color: "FFFFFF", size: 18 }), { alignment: "center" }), itemWidths[3], { fill: tableBrand, valign: "center" }),
+    wTableCell(wParagraph(wRun("Цена", { bold: true, color: "FFFFFF", size: 18 }), { alignment: "right" }), itemWidths[4], { fill: tableBrand, valign: "center" }),
+    wTableCell(wParagraph(wRun("Сумма", { bold: true, color: "FFFFFF", size: 18 }), { alignment: "right" }), itemWidths[5], { fill: tableBrand, valign: "center" }),
   ]];
 
   quote.rows.forEach((row, index) => {
@@ -569,13 +846,7 @@ function createQuoteDocxDocumentXml({ hasLogo, hasStamp }) {
 
   body.push(wParagraph("", { spacing: { after: 200 } }));
   body.push(wParagraph(wRun("СОСТАВ РАБОТ", { bold: true, size: 22 }), { spacing: { after: 100 } }));
-  [
-    "Монтаж насосного оборудования высокого давления",
-    "Установка системы водоподготовки и фильтрации",
-    "Прокладка труб высокого давления",
-    "Монтаж фитингов и форсунок",
-    "Подключение к водопроводу и пусконаладка системы",
-  ].forEach((item) => {
+  quote.workItems.forEach((item) => {
     body.push(wParagraph(wRun(`- ${item}`, { size: 21 }), { spacing: { after: 70 } }));
   });
 
@@ -595,6 +866,17 @@ function createQuoteDocxDocumentXml({ hasLogo, hasStamp }) {
 
   body.push(wParagraph("", { spacing: { after: 100 } }));
   body.push(wParagraph(wRun("ИП «Бауыржан» · Системы туманообразования", { color: muted, size: 16 }), { alignment: "center" }));
+}
+
+function createQuoteDocxDocumentXml({ hasLogo, hasStamp }) {
+  const quotes = calculateSelectedQuotes();
+  const body = [];
+  docxImageId = 1;
+
+  quotes.forEach((quote, index) => {
+    if (index > 0) body.push('<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
+    appendQuoteDocxBody(body, quote, quoteNumberFor(index), { hasLogo, hasStamp });
+  });
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
   <w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:w10="urn:schemas-microsoft-com:office:word" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk" xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" mc:Ignorable="w14 wp14">
@@ -813,8 +1095,8 @@ async function loadAssetBytes(src) {
 
 async function createQuoteDocxBlob() {
   const [logoBytes, stampBytes] = await Promise.all([
-    loadAssetBytes("logo.png"),
-    loadAssetBytes("stamp.png"),
+    loadAssetBytes(LOGO_SRC),
+    loadAssetBytes(STAMP_SRC),
   ]);
   const hasLogo = Boolean(logoBytes);
   const hasStamp = Boolean(stampBytes);
@@ -890,7 +1172,7 @@ function loadBrandImage() {
     const image = new Image();
     image.onload = () => resolve(image);
     image.onerror = () => resolve(null);
-    image.src = "logo.png";
+    image.src = LOGO_SRC;
   });
 }
 
@@ -956,16 +1238,16 @@ function drawPdfFooter(ctx, canvas, margin, pageRight, line, muted, pageNumber) 
   ctx.fillText(footer, canvas.width / 2 - ctx.measureText(footer).width / 2, canvas.height - 62);
 }
 
-function createQuoteCanvas(brandImage, stampImage) {
-  const quote = calculateQuote();
+function createQuoteCanvas(quote, displayNumber, pageNumber, brandImage, stampImage) {
   const canvas = document.createElement("canvas");
   canvas.width = 1240;
   canvas.height = 1754;
   const ctx = canvas.getContext("2d");
   const margin = 74;
   const pageRight = canvas.width - margin;
-  const brand = "#0b3c49";
-  const tableBrand = "#2e9cb5";
+  const brand = quote.brandColor;
+  const tableBrand = quote.tableColor || quote.brandColor;
+  const brandMuted = quote.mutedColor;
   const ink = "#182227";
   const muted = "#64747b";
   const line = "#c8d5d8";
@@ -983,15 +1265,15 @@ function createQuoteCanvas(brandImage, stampImage) {
   ctx.fillStyle = "#ffffff";
   ctx.font = "700 30px Arial, Helvetica, sans-serif";
   ctx.fillText("ИП «Бауыржан»", margin + 126, 88);
-  ctx.fillStyle = "#bfe0e7";
+  ctx.fillStyle = brandMuted;
   ctx.font = "21px Arial, Helvetica, sans-serif";
-  ctx.fillText("СИСТЕМЫ ТУМАНООБРАЗОВАНИЯ ВЫСОКОГО ДАВЛЕНИЯ", margin + 126, 132);
+  ctx.fillText(quote.systemLine.toUpperCase(), margin + 126, 132);
 
   ctx.font = "700 20px Arial, Helvetica, sans-serif";
   ctx.fillStyle = "#ffffff";
   drawRightText(ctx, "+7 (701) 988-80-25", pageRight - 28, 88);
   ctx.font = "20px Arial, Helvetica, sans-serif";
-  ctx.fillStyle = "#bfe0e7";
+  ctx.fillStyle = brandMuted;
   drawRightText(ctx, "adilnug@gmail.com", pageRight - 28, 118);
   drawRightText(ctx, "г. Астана, ул. Аягоз, 1", pageRight - 28, 148);
 
@@ -1003,13 +1285,13 @@ function createQuoteCanvas(brandImage, stampImage) {
   ctx.fillText("КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ", margin, 246);
   ctx.fillStyle = muted;
   ctx.font = "24px Arial, Helvetica, sans-serif";
-  ctx.fillText("Поставка и монтаж системы туманообразования «под ключ»", margin, 306);
+  ctx.fillText(quote.titleLine, margin, 306);
 
   const metaTop = 366;
   const metaGap = 18;
   const metaWidth = (canvas.width - margin * 2 - metaGap * 2) / 3;
   const meta = [
-    ["ИСХОДЯЩИЙ", `№ ${state.quoteNumber || DEFAULT_STATE.quoteNumber} от ${dateRu()}`],
+    ["ИСХОДЯЩИЙ", `№ ${displayNumber} от ${dateRu()}`],
     ["ОБЪЕКТ", state.objectName || DEFAULT_STATE.objectName],
     ["ГОРОД", state.cityName || DEFAULT_STATE.cityName],
   ];
@@ -1033,7 +1315,7 @@ function createQuoteCanvas(brandImage, stampImage) {
   ctx.font = "21px Arial, Helvetica, sans-serif";
   drawWrappedText(
     ctx,
-    "ИП «Бауыржан» предлагает выполнить поставку и профессиональный монтаж системы туманообразования высокого давления. Все цены указаны в тенге (₸) с учётом материалов.",
+    quote.intro,
     margin,
     502,
     canvas.width - margin * 2,
@@ -1115,19 +1397,20 @@ function createQuoteCanvas(brandImage, stampImage) {
   ctx.fillText("ИТОГО", margin + tableWidth - 320, y + 18);
   drawRightText(ctx, money(quote.total), margin + tableWidth - 16, y + 18);
 
-  drawPdfFooter(ctx, canvas, margin, pageRight, line, muted, 1);
-  return [canvas, createQuoteSecondCanvas(brandImage, stampImage)];
+  drawPdfFooter(ctx, canvas, margin, pageRight, line, muted, pageNumber);
+  return [canvas, createQuoteSecondCanvas(quote, displayNumber, pageNumber + 1, brandImage, stampImage)];
 }
 
-function createQuoteSecondCanvas(brandImage, stampImage) {
+function createQuoteSecondCanvas(quote, displayNumber, pageNumber, brandImage, stampImage) {
   const canvas = document.createElement("canvas");
   canvas.width = 1240;
   canvas.height = 1754;
   const ctx = canvas.getContext("2d");
   const margin = 74;
   const pageRight = canvas.width - margin;
-  const brand = "#0b3c49";
-  const tableBrand = "#2e9cb5";
+  const brand = quote.brandColor;
+  const tableBrand = quote.tableColor || quote.brandColor;
+  const brandMuted = quote.mutedColor;
   const ink = "#182227";
   const muted = "#64747b";
   const line = "#c8d5d8";
@@ -1143,9 +1426,9 @@ function createQuoteSecondCanvas(brandImage, stampImage) {
   ctx.fillStyle = "#ffffff";
   ctx.font = "700 30px Arial, Helvetica, sans-serif";
   ctx.fillText("ИП «Бауыржан»", margin + 96, 92);
-  ctx.fillStyle = "#bfe0e7";
+  ctx.fillStyle = brandMuted;
   ctx.font = "20px Arial, Helvetica, sans-serif";
-  drawRightText(ctx, `КП № ${state.quoteNumber || DEFAULT_STATE.quoteNumber} от ${dateRu()}`, pageRight - 24, 104);
+  drawRightText(ctx, `КП № ${displayNumber} от ${dateRu()}`, pageRight - 24, 104);
   ctx.fillStyle = tableBrand;
   ctx.fillRect(margin, 184, canvas.width - margin * 2, 6);
 
@@ -1155,13 +1438,7 @@ function createQuoteSecondCanvas(brandImage, stampImage) {
   ctx.fillText("СОСТАВ РАБОТ", margin, y);
   y += 54;
   ctx.font = "21px Arial, Helvetica, sans-serif";
-  [
-    "Монтаж насосного оборудования высокого давления",
-    "Установка системы водоподготовки и фильтрации",
-    "Прокладка труб высокого давления",
-    "Монтаж фитингов и форсунок",
-    "Подключение к водопроводу и пусконаладка системы",
-  ].forEach((item) => {
+  quote.workItems.forEach((item) => {
     ctx.fillText(`- ${item}`, margin, y);
     y += 34;
   });
@@ -1174,7 +1451,7 @@ function createQuoteSecondCanvas(brandImage, stampImage) {
   ctx.fillText("______________________", margin, y + 58);
   drawStamp(ctx, stampImage, pageRight - 204, y - 48, 172);
 
-  drawPdfFooter(ctx, canvas, margin, pageRight, line, muted, 2);
+  drawPdfFooter(ctx, canvas, margin, pageRight, line, muted, pageNumber);
   return canvas;
 }
 
@@ -1266,11 +1543,14 @@ function buildPdfFromJpegs(images) {
 }
 
 async function createQuotePdfBlob() {
+  const quotes = calculateSelectedQuotes();
   const [brandImage, stampImage] = await Promise.all([
     loadBrandImage(),
-    loadImage("stamp.png"),
+    loadImage(STAMP_SRC),
   ]);
-  const canvases = createQuoteCanvas(brandImage, stampImage);
+  const canvases = quotes.flatMap((quote, index) =>
+    createQuoteCanvas(quote, quoteNumberFor(index), index * 2 + 1, brandImage, stampImage),
+  );
   const images = await Promise.all(canvases.map(async (canvas) => ({
     bytes: await canvasToJpegBytes(canvas),
     width: canvas.width,
@@ -1280,14 +1560,20 @@ async function createQuotePdfBlob() {
   return new Blob([pdfBytes], { type: "application/pdf" });
 }
 
-function quoteFileName() {
-  const number = safeFilePart(state.quoteNumber || DEFAULT_STATE.quoteNumber);
+function quoteNumberRange() {
+  const quotes = calculateSelectedQuotes();
+  if (quotes.length <= 1) return quoteNumberFor(0);
+  return `${quoteNumberFor(0)}-${quoteNumberFor(quotes.length - 1)}`;
+}
+
+function quoteFileName(extension = "pdf") {
+  const number = safeFilePart(quoteNumberRange());
   const objectName = safeFilePart(state.objectName || DEFAULT_STATE.objectName);
-  return `КП_${number}_${objectName}.pdf`;
+  return `КП_${number}_${objectName}.${extension}`;
 }
 
 function quoteDocxFileName() {
-  return quoteFileName().replace(/\.pdf$/i, ".docx");
+  return quoteFileName("docx");
 }
 
 function downloadBlob(blob, fileName) {
@@ -1302,11 +1588,16 @@ function downloadBlob(blob, fileName) {
 }
 
 function whatsappText() {
+  const quotes = calculateSelectedQuotes();
+  const quoteNumbers = quotes.map((quote, index) => `№ ${quoteNumberFor(index)}`).join(" и ");
+  const totals = quotes.map((quote) => `${quote.shortCode}: ${money(quote.total)}`);
   return [
     "Добрый день!",
-    `Направляю коммерческое предложение № ${state.quoteNumber || DEFAULT_STATE.quoteNumber}.`,
+    quotes.length > 1
+      ? `Направляю коммерческие предложения ${quoteNumbers} в одном PDF-файле.`
+      : `Направляю коммерческое предложение ${quoteNumbers}.`,
     `Объект: ${state.objectName || DEFAULT_STATE.objectName}.`,
-    `Итого: ${summaryTotal.textContent}.`,
+    quotes.length > 1 ? `Итого: ${totals.join("; ")}. Общий итог: ${summaryTotal.textContent}.` : `Итого: ${summaryTotal.textContent}.`,
   ].join("\n");
 }
 

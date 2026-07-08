@@ -30,8 +30,8 @@
               <span>Номер КП</span>
               <div class="number-control">
                 <button id="prev-quote-button" class="step-button" type="button" aria-label="Предыдущий номер КП">−</button>
-                <button id="next-quote-button" class="step-button" type="button" aria-label="Следующий номер КП">+</button>
                 <input id="quote-number" name="quoteNumber" inputmode="numeric" autocomplete="off" />
+                <button id="next-quote-button" class="step-button" type="button" aria-label="Следующий номер КП">+</button>
               </div>
             </label>
 
@@ -45,15 +45,45 @@
               <input id="city-name" name="cityName" autocomplete="address-level2" />
             </label>
 
-            <label>
-              <span>Форсунки</span>
-              <input id="nozzle-count" name="nozzleCount" type="number" inputmode="numeric" min="1" step="1" />
-            </label>
+            <fieldset class="type-select">
+              <legend>Тип предложения</legend>
+              <label class="checkbox-field">
+                <input id="type-high" name="typeHigh" type="checkbox" checked />
+                <span>Высокое давление</span>
+              </label>
+              <label class="checkbox-field">
+                <input id="type-low" name="typeLow" type="checkbox" />
+                <span>Низкое давление</span>
+              </label>
+            </fieldset>
 
-            <label>
-              <span>Длина трубки, м</span>
-              <input id="pipe-length" name="pipeLength" type="number" inputmode="decimal" min="0.1" step="0.1" />
-            </label>
+            <fieldset class="pressure-inputs">
+              <legend>Высокое давление</legend>
+              <div class="pressure-grid">
+                <label>
+                  <span>Количество форсунок</span>
+                  <input id="high-nozzle-count" name="highNozzleCount" type="number" inputmode="numeric" min="1" step="1" />
+                </label>
+                <label>
+                  <span>Длина трубок, м</span>
+                  <input id="high-pipe-length" name="highPipeLength" type="number" inputmode="decimal" min="0.1" step="0.1" />
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset class="pressure-inputs">
+              <legend>Низкое давление</legend>
+              <div class="pressure-grid">
+                <label>
+                  <span>Количество форсунок</span>
+                  <input id="low-nozzle-count" name="lowNozzleCount" type="number" inputmode="numeric" min="1" step="1" />
+                </label>
+                <label>
+                  <span>Длина трубок, м</span>
+                  <input id="low-pipe-length" name="lowPipeLength" type="number" inputmode="decimal" min="0.1" step="0.1" />
+                </label>
+              </div>
+            </fieldset>
           </div>
         </form>
 
@@ -97,43 +127,100 @@
 
         <details class="settings">
           <summary>Цены и формулы</summary>
-          <div class="settings-grid">
-            <label>
-              <span>Насос 1 л, ₸</span>
-              <input id="price-pump-1" type="number" inputmode="numeric" min="0" step="1000" />
-            </label>
-            <label>
-              <span>Насос 2 л, ₸</span>
-              <input id="price-pump-2" type="number" inputmode="numeric" min="0" step="1000" />
-            </label>
-            <label>
-              <span>Насос 3 л, ₸</span>
-              <input id="price-pump-3" type="number" inputmode="numeric" min="0" step="1000" />
-            </label>
-            <label>
-              <span>Насос 4 л, ₸</span>
-              <input id="price-pump-4" type="number" inputmode="numeric" min="0" step="1000" />
-            </label>
-            <label>
-              <span>Насос 5 л, ₸</span>
-              <input id="price-pump-5" type="number" inputmode="numeric" min="0" step="1000" />
-            </label>
-            <label>
-              <span>Трубка, ₸/м</span>
-              <input id="price-pipe" type="number" inputmode="numeric" min="0" step="100" />
-            </label>
-            <label>
-              <span>Фитинг, ₸</span>
-              <input id="price-fitting" type="number" inputmode="numeric" min="0" step="100" />
-            </label>
-            <label>
-              <span>Форсунка, ₸</span>
-              <input id="price-nozzle" type="number" inputmode="numeric" min="0" step="100" />
-            </label>
-            <label>
-              <span>Монтаж, ₸</span>
-              <input id="price-installation" type="number" inputmode="numeric" min="0" step="1000" />
-            </label>
+          <div class="settings-section">
+            <div class="settings-title">Высокое давление</div>
+            <div class="settings-grid">
+              <label>
+                <span>Насос 1 л, ₸</span>
+                <input id="price-high-pump-1" type="number" inputmode="numeric" min="0" step="1000" />
+              </label>
+              <label>
+                <span>Насос 2 л, ₸</span>
+                <input id="price-high-pump-2" type="number" inputmode="numeric" min="0" step="1000" />
+              </label>
+              <label>
+                <span>Насос 3 л, ₸</span>
+                <input id="price-high-pump-3" type="number" inputmode="numeric" min="0" step="1000" />
+              </label>
+              <label>
+                <span>Насос 4 л, ₸</span>
+                <input id="price-high-pump-4" type="number" inputmode="numeric" min="0" step="1000" />
+              </label>
+              <label>
+                <span>Насос 5 л, ₸</span>
+                <input id="price-high-pump-5" type="number" inputmode="numeric" min="0" step="1000" />
+              </label>
+              <label>
+                <span>Переходник, ₸</span>
+                <input id="price-high-adapter" type="number" inputmode="numeric" min="0" step="100" />
+              </label>
+              <label>
+                <span>Трубка, ₸/м</span>
+                <input id="price-high-pipe" type="number" inputmode="numeric" min="0" step="100" />
+              </label>
+              <label>
+                <span>Фитинг, ₸</span>
+                <input id="price-high-fitting" type="number" inputmode="numeric" min="0" step="100" />
+              </label>
+              <label>
+                <span>Форсунка, ₸</span>
+                <input id="price-high-nozzle" type="number" inputmode="numeric" min="0" step="100" />
+              </label>
+              <label>
+                <span>Заглушка, ₸</span>
+                <input id="price-high-plug" type="number" inputmode="numeric" min="0" step="100" />
+              </label>
+              <label>
+                <span>Монтаж, ₸</span>
+                <input id="price-high-installation" type="number" inputmode="numeric" min="0" step="1000" />
+              </label>
+              <label>
+                <span>Фильтр, ₸</span>
+                <input id="price-high-filter" type="number" inputmode="numeric" min="0" step="100" />
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="settings-title">Низкое давление</div>
+            <div class="settings-grid">
+              <label>
+                <span>Труба, ₸/м</span>
+                <input id="price-low-pipe" type="number" inputmode="numeric" min="0" step="100" />
+              </label>
+              <label>
+                <span>Переходник, ₸</span>
+                <input id="price-low-adapter" type="number" inputmode="numeric" min="0" step="100" />
+              </label>
+              <label>
+                <span>Фитинг, ₸</span>
+                <input id="price-low-fitting" type="number" inputmode="numeric" min="0" step="100" />
+              </label>
+              <label>
+                <span>Форсунка, ₸</span>
+                <input id="price-low-nozzle" type="number" inputmode="numeric" min="0" step="100" />
+              </label>
+              <label>
+                <span>Заглушка, ₸</span>
+                <input id="price-low-plug" type="number" inputmode="numeric" min="0" step="100" />
+              </label>
+              <label>
+                <span>Монтаж, ₸</span>
+                <input id="price-low-installation" type="number" inputmode="numeric" min="0" step="1000" />
+              </label>
+              <label>
+                <span>Насос 4 бара фикс., ₸</span>
+                <input id="price-low-pump" type="number" inputmode="numeric" min="0" step="1000" />
+              </label>
+              <label>
+                <span>Емкость 50 л, ₸</span>
+                <input id="price-low-tank" type="number" inputmode="numeric" min="0" step="1000" />
+              </label>
+              <label>
+                <span>Сантехподготовка, ₸</span>
+                <input id="price-low-plumbing-prep" type="number" inputmode="numeric" min="0" step="1000" />
+              </label>
+            </div>
           </div>
           <button id="reset-settings" class="ghost-button" type="button">Сбросить цены</button>
         </details>
@@ -142,7 +229,7 @@
       </section>
 
       <section class="quote-stage" aria-label="Предпросмотр КП">
-        <article id="quote-preview" class="quote-document"></article>
+        <div id="quote-preview" class="quote-preview"></div>
       </section>
     </main>
 
