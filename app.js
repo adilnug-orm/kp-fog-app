@@ -234,6 +234,25 @@ function shiftQuoteNumber(direction) {
   setStatus(`Номер КП: ${state.quoteNumber}`);
 }
 
+function nextBaseQuoteNumber(step = 1) {
+  const current = String(state.quoteNumber || DEFAULT_STATE.quoteNumber);
+  const match = current.match(/^(.*?)(\d+)(\D*)$/);
+  if (match) {
+    const [, prefix, digits, suffix] = match;
+    const next = Math.max(1, Number(digits) + step);
+    return `${prefix}${String(next).padStart(digits.length, "0")}${suffix}`;
+  }
+  return String(Math.max(1, integerFromValue(DEFAULT_STATE.quoteNumber, 1) + step));
+}
+
+function advanceQuoteNumber(step = 1) {
+  state.quoteNumber = nextBaseQuoteNumber(step);
+  fields.quoteNumber.value = state.quoteNumber;
+  saveState();
+  renderQuote();
+  return state.quoteNumber;
+}
+
 function normalizeSelectedTypes() {
   if (!state.selectedTypes.high && !state.selectedTypes.low) {
     state.selectedTypes.high = true;
@@ -1116,8 +1135,10 @@ function safeFilePart(value) {
   return String(value || "")
     .trim()
     .replace(/[\\/:*?"<>|]+/g, "-")
-    .replace(/\s+/g, "_")
-    .slice(0, 60) || "object";
+    .replace(/\s+/g, " ")
+    .replace(/[.\s]+$/g, "")
+    .slice(0, 60)
+    .replace(/[.\s]+$/g, "") || "object";
 }
 
 function wrapLines(ctx, text, maxWidth) {
@@ -1567,9 +1588,8 @@ function quoteNumberRange() {
 }
 
 function quoteFileName(extension = "pdf") {
-  const number = safeFilePart(quoteNumberRange());
   const objectName = safeFilePart(state.objectName || DEFAULT_STATE.objectName);
-  return `КП_${number}_${objectName}.${extension}`;
+  return `КП ${objectName}.${extension}`;
 }
 
 function quoteDocxFileName() {
@@ -1601,15 +1621,26 @@ function whatsappText() {
   ].join("\n");
 }
 
-function openWhatsappWithText() {
-  const url = `https://wa.me/?text=${encodeURIComponent(whatsappText())}`;
+function openWhatsappWithText(text = whatsappText()) {
+  const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
   window.location.href = url;
 }
 
-function downloadAndOpenWhatsapp(blob, fileName) {
+function downloadAndOpenWhatsapp(blob, fileName, text) {
   downloadBlob(blob, fileName);
-  setStatus("PDF сохранен. Открываю WhatsApp...");
-  window.setTimeout(openWhatsappWithText, 700);
+  window.setTimeout(() => openWhatsappWithText(text), 700);
+}
+
+async function sharePdfFile(blob, fileName, text) {
+  if (typeof File === "undefined" || !navigator.share) return false;
+  const file = new File([blob], fileName, { type: "application/pdf" });
+  if (!navigator.canShare || !navigator.canShare({ files: [file] })) return false;
+  await navigator.share({
+    files: [file],
+    title: fileName.replace(/\.pdf$/i, ""),
+    text,
+  });
+  return true;
 }
 
 async function saveQuotePdf() {
@@ -1647,9 +1678,29 @@ async function shareQuotePdf() {
   setStatus("Готовлю PDF...");
   try {
     const blob = await createQuotePdfBlob();
-    downloadAndOpenWhatsapp(blob, quoteFileName());
+    const fileName = quoteFileName();
+    const text = whatsappText();
+    const quoteStep = calculateSelectedQuotes().length;
+    let shared = false;
+    try {
+      shared = await sharePdfFile(blob, fileName, text);
+    } catch (shareError) {
+      if (shareError?.name === "AbortError") throw shareError;
+      console.warn(shareError);
+    }
+    const nextNumber = advanceQuoteNumber(quoteStep);
+    if (shared) {
+      setStatus(`PDF передан в отправку. Следующий КП: ${nextNumber}`);
+    } else {
+      downloadAndOpenWhatsapp(blob, fileName, text);
+      setStatus(`PDF сохранен. Открываю WhatsApp. Следующий КП: ${nextNumber}`);
+    }
   } catch (error) {
-    setStatus("Не удалось создать PDF. Попробуйте кнопку «Печать».");
+    if (error?.name === "AbortError") {
+      setStatus("Отправка отменена.");
+    } else {
+      setStatus("Не удалось подготовить WhatsApp. Попробуйте кнопку «PDF Файл».");
+    }
   } finally {
     button.disabled = false;
     isPreparingWhatsappPdf = false;
