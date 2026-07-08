@@ -1,12 +1,18 @@
 {
-  "name": "КП Туманообразование",
-  "short_name": "КП Туман",
+  "name": "Tuman.Pro",
+  "short_name": "Tuman.Pro",
   "description": "Расчет и подготовка коммерческих предложений для систем туманообразования.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#edf4f5",
   "theme_color": "#0f6f8c",
   "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "720x720",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
     {
       "src": "icon.svg",
       "sizes": "any",
